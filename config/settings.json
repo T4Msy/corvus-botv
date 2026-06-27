@@ -1,0 +1,13 @@
+{
+  "prefix": "!",
+  "botName": "Corvus",
+  "iaName": "Masayoshi",
+  "owner": {
+    "nick": "T4",
+    "numbers": []
+  },
+  "flags": {
+    "menuAudio": false,
+    "forwarding": false
+  }
+}

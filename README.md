@@ -1,50 +1,99 @@
-<img src="https://readme-typing-svg.herokuapp.com/?font=mono&size=30&duration=4000&color=FF0000&center=falso&vCenter=falso&lines=𝐒𝐀𝐊𝐔𝐑𝐀-𝐁𝐎𝐓+𝐕6.5;𝐌𝐀𝐈𝐒+𝐔𝐒𝐀𝐃𝐀+𝐃𝐎+𝐁𝐑;1000+𝐂𝐎𝐌𝐀𝐍𝐃𝐎𝐒;𝕸.𝕾𝖈𝖍𝖊𝖞𝖔𝖙-𝕯𝖔𝖒𝖎𝖓𝖆✰✰✰✰✰">      
+# Corvus Bot 🐦‍⬛
 
-<h1 align="center">
-<p>
-<img src= "https://telegra.ph/file/4f50b847d0d078a954055.jpg" alt="SAKURA BOT" width="720">
-</p>
+A face WhatsApp da IA **Masayoshi**. Bot multi-device construído sobre
+[`@whiskeysockets/baileys`](https://github.com/WhiskeySockets/Baileys), com base de código
+própria, modular e mantível.
 
-<p align="center">
-<a href="#"><img title="BOT MULTI DEVICE" src="https://img.shields.io/badge/BOT MULTI DEVICE-blue?&style=for-the-badge"></a>
-</p>
+> Sucessor do antigo Sakura-Bot v6 (cujo motor estava ofuscado). O código legado foi
+> arquivado em [`legacy/`](legacy/) apenas como referência para portar funcionalidades.
 
-<p align="center">
-<img title="Autor" src="https://img.shields.io/badge/Autor-M.SCHEYOT-orange.svg?style=for-the-badge&logo=github"></a>
-<img title="Versão" src="https://img.shields.io/badge/Versão-6.0.0-orange.svg?style=for-the-badge&logo=github"></a>
-</p>
+## Requisitos
 
-## Instalação via Termux  <img src="https://user-images.githubusercontent.com/108157095/182052725-6568419a-6a9f-490a-85ea-90b94af694fe.png" height="25px">
-**1° Comando**
-```
-pkg upgrade -y && pkg update -y && pkg install python -y && pkg install nodejs-lts -y && pkg install nodejs -y && pkg install git -y && pkg install ffmpeg -y && pkg install wget -y
-```
----------------------------
+- Node.js **20+** (há um `.nvmrc`; use `nvm use`)
+- O FFmpeg vem empacotado via `ffmpeg-static` — não precisa instalar nada à parte.
 
-**2° Comando**
-```
-termux-setup-storage
-```
-**3° Comando**
-```
-cd /sdcard/
-```
-**4° Comando**
-```
-git clone https://github.com/Scheyot2/sakura-botv6.git
-```
-**5° Comando**
-```
-cd /sdcard/sakura-botv6
+## Instalação
+
+```bash
+nvm use          # opcional, fixa o Node 20
+npm install
 ```
 
-## Iniciar o Bot  <img src="https://user-images.githubusercontent.com/108157095/182053901-78e4a217-51ba-42a3-8ec5-38ed978ad752.png" height="25px">
-```
-sh scheyot.sh
+## Configuração
+
+Edite [`config/settings.json`](config/settings.json):
+
+```json
+{
+  "prefix": "!",
+  "botName": "Corvus",
+  "iaName": "Masayoshi",
+  "owner": { "nick": "T4", "numbers": ["5511999999999"] },
+  "flags": { "menuAudio": false, "forwarding": false }
+}
 ```
 
-## Gerar um novo QR  <img src="https://user-images.githubusercontent.com/108157095/182053978-d1a08952-4625-4e3f-b469-c8ebe4f22ac8.png" height="25px">
-```
-sh qrcode.sh
+- **`owner.numbers`**: número(s) do dono (só dígitos, com DDI). Habilita os comandos
+  restritos ao dono. Pode também ser definido via `.env` (`OWNER_NUMBERS=...`), que tem
+  precedência. Veja [`.env.example`](.env.example).
+
+## Uso
+
+```bash
+npm start          # inicia o bot (banner + QR code no terminal)
+npm run qr         # apaga a sessão atual e gera um novo QR
+npm run dev        # modo desenvolvimento (reinicia ao salvar)
 ```
 
+Escaneie o QR exibido com o WhatsApp do número do bot. A sessão é salva em
+`data/session/` (ignorada pelo git) — reinícios reconectam sozinhos, sem novo QR.
+
+## Comandos
+
+**Geral**
+
+| Comando | Descrição |
+|---------|-----------|
+| `!ping` | Status, latência e uptime |
+| `!menu` | Lista os comandos disponíveis |
+| `!dono` | Mostra o dono (T4) e a IA (Masayoshi) |
+| `!sticker` (`!fig`, `!s`) | Converte imagem/vídeo curto em figurinha |
+| `!level` (`!nivel`) | Mostra seu nível e XP |
+| `!rank` (`!top`) | Ranking de XP do grupo |
+
+**Administração de grupo** (requer admin; o bot precisa ser admin)
+
+| Comando | Descrição |
+|---------|-----------|
+| `!ban` (`!kick`) | Remove membro mencionado/citado |
+| `!promover` / `!rebaixar` | Dá/remove cargo de admin |
+| `!grupo abrir\|fechar` | Abre/fecha o grupo |
+| `!todos` (`!marcar`) | Marca todos os membros |
+| `!link` | Link de convite do grupo |
+| `!welcome on\|off` | Ativa/desativa boas-vindas |
+
+> O sistema de XP concede pontos por atividade (com cooldown anti-farm) e anuncia
+> quando alguém sobe de nível.
+
+## Adicionando comandos
+
+Crie um arquivo em `src/commands/`. Ele é carregado automaticamente:
+
+```js
+module.exports = {
+  name: 'oi',
+  aliases: ['ola'],
+  ownerOnly: false,   // restringe ao dono
+  groupOnly: false,   // restringe a grupos
+  desc: 'Responde uma saudação.',
+  async run ({ reply }) {
+    await reply('Opa! 🐦‍⬛')
+  }
+}
+```
+
+O contexto `run(ctx)` traz: `sock`, `msg`, `args`, `text`, `from`, `sender`, `isGroup`,
+`isOwner`, `config`, `commands` e `reply(textoOuConteúdo)`.
+
+A identidade visual (emojis, paleta, bordas de menu) fica centralizada em
+[`src/ui/theme.js`](src/ui/theme.js).

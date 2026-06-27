@@ -1,1 +1,20 @@
-.git
+# Dependências
+node_modules/
+
+# Estado de runtime: sessão do WhatsApp + dados persistidos
+data/
+
+# Variáveis de ambiente / segredos
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Temporários / SO
+tmp/
+*.tmp
+.DS_Store
+Thumbs.db
