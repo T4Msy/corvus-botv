@@ -13,6 +13,9 @@ node_modules/
 *.log
 logs/
 
+# Modelos de idioma do tesseract.js (baixados na 1ª execução)
+*.traineddata
+
 # Temporários / SO
 tmp/
 *.tmp
