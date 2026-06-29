@@ -8,7 +8,6 @@ const ytdl = require('youtube-dl-exec')
 const ffmpegPath = require('ffmpeg-static')
 
 const TMP = os.tmpdir()
-// Diretório do ffmpeg empacotado (yt-dlp usa para pós-processar áudio).
 const FFMPEG_DIR = path.dirname(ffmpegPath)
 
 function tmpFile (ext) {
@@ -17,6 +16,10 @@ function tmpFile (ext) {
 
 function isUrl (s) {
   return /^https?:\/\//i.test(s)
+}
+
+function isInstagram (s) {
+  return /instagram\.com/i.test(s)
 }
 
 /** Obtém metadados (título, duração, url) de um link ou busca no YouTube. */
@@ -54,20 +57,31 @@ async function downloadAudio (query, { maxDuration = 2400 } = {}) {
   return { file, title }
 }
 
-/** Baixa o vídeo (mp4, até 480p/64MB). Retorna { file, title }. */
+/** Baixa o vídeo (mp4, até 480p/64MB). Usa cobalt.tools como fallback para Instagram. */
 async function downloadVideo (query, { maxDuration = 900 } = {}) {
-  const { url, title, duration } = await getInfo(query)
-  if (duration && duration > maxDuration) throw new Error('Vídeo muito longo.')
-  const file = tmpFile('mp4')
-  await ytdl(url, {
-    output: file,
-    format: 'best[height<=480][ext=mp4]/best[ext=mp4]/best',
-    noPlaylist: true,
-    maxFilesize: '64M',
-    noWarnings: true,
-    ffmpegLocation: FFMPEG_DIR
-  })
-  return { file, title }
+  const ig = isUrl(query) && isInstagram(query)
+
+  try {
+    const { url, title, duration } = await getInfo(query)
+    if (duration && duration > maxDuration) throw new Error('Vídeo muito longo.')
+    const file = tmpFile('mp4')
+    await ytdl(url, {
+      output: file,
+      format: 'best[height<=480][ext=mp4]/best[ext=mp4]/best',
+      noPlaylist: true,
+      maxFilesize: '64M',
+      noWarnings: true,
+      ffmpegLocation: FFMPEG_DIR
+    })
+    return { file, title }
+  } catch (err) {
+    if (ig) {
+      const { downloadFromCobalt } = require('./cobalt')
+      const file = await downloadFromCobalt(query)
+      return { file, title: 'Instagram' }
+    }
+    throw err
+  }
 }
 
 /** Remove um arquivo temporário, ignorando erros. */

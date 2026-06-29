@@ -1,18 +1,15 @@
 'use strict'
 
 /**
- * Tema visual do Corvus — corvo dark/elegante.
- *
- * Fonte ÚNICA de estilo do bot. Menus e mensagens devem consumir daqui
- * em vez de espalhar emojis/bordas pelo código (era o problema do legado).
+ * Tema visual do Corvus — corvo sombrio / Masayoshi.
+ * Fonte ÚNICA de estilo. Menus e mensagens consomem daqui.
  */
 
-// Emojis temáticos (corvo / noite / místico)
 const emoji = {
   raven: '🐦‍⬛',
   feather: '🪶',
-  moon: '🌙',
-  dark: '⚫',
+  moon: '🌑',
+  dark: '🖤',
   crystal: '🔮',
   star: '✦',
   bullet: '▸',
@@ -21,28 +18,29 @@ const emoji = {
   crown: '👑',
   lock: '🔒',
   check: '✓',
-  cross: '✗'
+  cross: '✗',
+  wine: '🍷',
+  candle: '🕯️',
+  dagger: '⚔️'
 }
 
-// Paleta para o terminal (cfonts/chalk usam nomes destes).
 const palette = {
-  primary: '#6d28d9', // roxo
-  accent: '#a78bfa', // roxo claro
-  dark: '#111111',
-  cfonts: ['#6d28d9', '#a78bfa'] // gradiente do banner
+  primary: '#3b0764',
+  accent: '#7c3aed',
+  dark: '#09090b',
+  cfonts: ['#3b0764', '#7c3aed']
 }
 
-// Estilo de borda dos menus.
 const border = {
-  top: '╭─────────〔 %s 〕',
+  top: '╭━━━〔 %s 〕━━━',
   item: '│ ',
   section: '├─〔 %s 〕',
-  bottom: '╰───────────────────'
+  bottom: '╰━━━━━━━━━━━━━━━━━━━'
 }
 
 /**
- * Monta um bloco de menu já formatado com o tema.
- * @param {string} title  título do topo
+ * Monta um bloco de menu formatado.
+ * @param {string} title
  * @param {Array<{ section?: string, items?: string[] }>} groups
  */
 function box (title, groups) {

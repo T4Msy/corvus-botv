@@ -3,12 +3,16 @@
 const { downloadVideo, cleanup } = require('../lib/ytdlp')
 const { emoji } = require('../ui/theme')
 
-// Baixa o vídeo de um link de rede social (yt-dlp detecta a plataforma).
-function makeRun () {
-  return async function ({ sock, from, args, msg, reply }) {
+module.exports = {
+  name: 'baixar',
+  aliases: ['dl', 'download', 'tiktok', 'tt', 'instagram', 'ig', 'twitter', 'x'],
+  category: 'Downloads',
+  cooldown: 20,
+  desc: 'Baixa vídeo de qualquer plataforma (TikTok, Instagram, Twitter, YouTube…).',
+  async run ({ sock, from, args, msg, reply }) {
     const link = args[0]
     if (!link || !/^https?:\/\//i.test(link)) {
-      await reply(`${emoji.feather} Envie o link. Ex.: o comando seguido da URL.`)
+      await reply(`${emoji.feather} Envie o link do vídeo. Ex.: *!baixar <link>*`)
       return
     }
     await reply(`${emoji.moon} Baixando...`)
@@ -18,21 +22,14 @@ function makeRun () {
       file = res.file
       await sock.sendMessage(from, { video: { url: file }, caption: res.title }, { quoted: msg })
     } catch (err) {
-      console.error('[redes] erro:', err)
-      await reply(`${emoji.cross} Não consegui baixar (${err.message}).`)
+      console.error('[baixar] erro:', err)
+      const isCobaltFail = err.message?.includes('cobalt')
+      const hint = /instagram/i.test(link) && isCobaltFail
+        ? ' O Instagram exige login — baixe manualmente e envie o vídeo aqui.'
+        : ''
+      await reply(`${emoji.cross} Não consegui baixar: ${err.message}.${hint}`)
     } finally {
       await cleanup(file)
     }
   }
 }
-
-const run = makeRun()
-const base = { category: 'Downloads', cooldown: 20, run }
-
-module.exports = [
-  { ...base, name: 'baixar', aliases: ['dl'], desc: 'Baixa vídeo de um link (TikTok, Instagram, etc.).' },
-  { ...base, name: 'tiktok', aliases: ['tt'], desc: 'Baixa vídeo do TikTok.' },
-  { ...base, name: 'instagram', aliases: ['ig'], desc: 'Baixa vídeo do Instagram.' },
-  { ...base, name: 'twitter', aliases: ['x'], desc: 'Baixa vídeo do Twitter/X.' },
-  { ...base, name: 'facebook', aliases: ['fb'], desc: 'Baixa vídeo do Facebook.' }
-]

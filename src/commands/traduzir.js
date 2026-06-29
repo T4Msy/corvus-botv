@@ -27,8 +27,8 @@ module.exports = {
     }
 
     try {
-      const res = await translate(text, { to })
-      await reply(`${emoji.crystal} *Tradução (${to}):*\n${res.text}`)
+      const res = await translate(text, to)
+      await reply(`${emoji.crystal} *Tradução (${to}):*\n${res}`)
     } catch (err) {
       console.error('[traduzir] erro:', err)
       await reply(`${emoji.cross} Não consegui traduzir agora.`)
