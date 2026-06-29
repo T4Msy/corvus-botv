@@ -32,19 +32,28 @@ src/
   connection.js   # Baileys socket: QR, auto-reconnect; wires onMessage + onGroupParticipants
   config.js       # loads config/settings.json + .env, exposes config.isOwner()
   handler.js      # message → XP grant → prefix → resolve command → permissions → run
-  commands/       # one file per command, auto-loaded by _registry.js
-    _registry.js  # scans *.js (except _-prefixed) into a Map (name + aliases)
-    ping menu dono sticker level rank          # general
-    ban promover rebaixar grupo todos link welcome  # group admin
+  commands/       # one file per command (or an ARRAY of commands), auto-loaded by _registry.js
+    _registry.js  # scans *.js (except _-prefixed) into a Map (name + aliases); accepts arrays
+    ping menu dono level rank                        # general
+    sticker toimg emojimix traduzir ler              # Mídia
+    tts viraraudio efeitos(grave/agudo/...)          # Áudio (efeitos.js exports an array)
+    play video redes(tiktok/instagram/...)           # Downloads
+    velha forca anagrama quiz ppt enquete            # Jogos
+    ban promover rebaixar grupo todos del adv* rankmsg msgs limpar link welcome  # Admin
   events/
     groupParticipants.js  # join/leave welcome messages (toggle via !welcome)
   lib/
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
     leveling.js   # XP/level system (uses store('levels'))
+    ratelimit.js  # per-(command,user) cooldown for the `cooldown` flag
     group.js      # getAdmins(), botJid(), getTargets()
-    media.js      # resolveMedia()/downloadMedia() for quoted/own media
+    media.js      # resolveMedia()/downloadMedia() — image/video/audio/sticker, quoted or own
     sticker.js    # createSticker(): sharp (image) + ffmpeg-static (video) + node-webpmux (EXIF)
+    audio.js      # ffmpeg-static effects + toMp3/toOpus
+    tts.js translate.js ocr.js emojimix.js ytdlp.js  # feature helpers (free/no-key services)
+    games/ttt.js  # pure tic-tac-toe logic
     fetch.js text.js
+  data/           # game data: anagrama.json, quiz.json (committed)
   ui/
     theme.js      # SINGLE source of visual style: emojis, palette, menu box()
     banner.js     # terminal CORVUS banner (cfonts)
@@ -65,12 +74,15 @@ legacy/           # archived Sakura-Bot v6 — reference only, do not run/edit
 ### Adding a command
 
 Drop a file in `src/commands/` exporting
-`{ name, aliases?, ownerOnly?, groupOnly?, adminOnly?, botAdmin?, desc?, run(ctx) }`.
+`{ name, aliases?, category?, cooldown?, ownerOnly?, groupOnly?, adminOnly?, botAdmin?, desc?, run(ctx) }`.
+A file may also export an **array** of such objects (see `efeitos.js`, `redes.js`).
 It is auto-registered. Permission flags are enforced by the handler before `run`:
 - `ownerOnly` → only `config.owner.numbers`
 - `groupOnly` → only in groups
 - `adminOnly` → group admins (or owner)
 - `botAdmin` → the bot itself must be group admin
+- `cooldown` (seconds) → per-user rate limit via `lib/ratelimit.js` (owners exempt)
+- `category` → menu grouping (Geral, Mídia, Áudio, Jogos, Downloads; `adminOnly` ⇒ Admin)
 
 When a command sets `adminOnly`/`botAdmin`, the handler resolves `groupMetadata` once and
 passes `isAdmin`, `isBotAdmin`, `groupMetadata` in `ctx`. Full `ctx`: `sock, msg, args, text,
@@ -89,7 +101,8 @@ means editing one giant obfuscated blob.
 - **Persistence** goes through `lib/store.js` — `store('name')` returns a collection backed by
   `data/name.json` with in-memory cache and atomic, queued writes. Never `fs.writeFileSync`
   raw JSON like the legacy did (that caused the corruption/race issues). Current collections:
-  `levels` (XP) and `groups` (per-group toggles like welcome).
+  `levels` (XP), `groups` (toggles like welcome), `counters` (per-group message counts),
+  `warns` (advertências), and per-group game state (`ttt`, `forca`, `anagrama`, `quiz`).
 
 ## Porting from legacy
 

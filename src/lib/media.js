@@ -26,6 +26,17 @@ function resolveMedia (msg) {
         seconds: container.videoMessage.seconds || 0
       }
     }
+    if (container.audioMessage) {
+      return {
+        kind: 'audio',
+        isVideo: false,
+        node: container.audioMessage,
+        seconds: container.audioMessage.seconds || 0
+      }
+    }
+    if (container.stickerMessage) {
+      return { kind: 'sticker', isVideo: false, node: container.stickerMessage }
+    }
     return null
   }
 
@@ -40,7 +51,7 @@ async function downloadMedia (msg) {
   const quoted = m.extendedTextMessage?.contextInfo?.quotedMessage
 
   // Se a mídia está na citada, reconstrói um WAMessage mínimo para o Baileys.
-  const target = (m.imageMessage || m.videoMessage)
+  const target = (m.imageMessage || m.videoMessage || m.audioMessage || m.stickerMessage)
     ? msg
     : { key: msg.key, message: quoted }
 

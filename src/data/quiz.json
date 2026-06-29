@@ -1,0 +1,22 @@
+[
+  { "pergunta": "Qual é o maior planeta do Sistema Solar?", "resposta": "júpiter" },
+  { "pergunta": "Quantos lados tem um hexágono?", "resposta": "6" },
+  { "pergunta": "Qual é a capital do Japão?", "resposta": "tóquio" },
+  { "pergunta": "Quem pintou a Mona Lisa?", "resposta": "leonardo da vinci" },
+  { "pergunta": "Qual é o maior oceano do mundo?", "resposta": "pacífico" },
+  { "pergunta": "Em que país fica a Torre Eiffel?", "resposta": "frança" },
+  { "pergunta": "Qual é o metal líquido à temperatura ambiente?", "resposta": "mercúrio" },
+  { "pergunta": "Quantos jogadores tem um time de futebol em campo?", "resposta": "11" },
+  { "pergunta": "Qual é o rio mais extenso do Brasil?", "resposta": "amazonas" },
+  { "pergunta": "Qual gás as plantas absorvem na fotossíntese?", "resposta": "gás carbônico" },
+  { "pergunta": "Quem escreveu Dom Casmurro?", "resposta": "machado de assis" },
+  { "pergunta": "Qual é o planeta conhecido como Planeta Vermelho?", "resposta": "marte" },
+  { "pergunta": "Quantos continentes existem?", "resposta": "6" },
+  { "pergunta": "Qual é a moeda oficial do Brasil?", "resposta": "real" },
+  { "pergunta": "Qual animal é conhecido como o rei da selva?", "resposta": "leão" },
+  { "pergunta": "Qual é o símbolo químico da água?", "resposta": "h2o" },
+  { "pergunta": "Em que ano o Brasil foi descoberto?", "resposta": "1500" },
+  { "pergunta": "Qual é o maior estado do Brasil em área?", "resposta": "amazonas" },
+  { "pergunta": "Quantas cordas tem um violão tradicional?", "resposta": "6" },
+  { "pergunta": "Qual é a capital da Argentina?", "resposta": "buenos aires" }
+]

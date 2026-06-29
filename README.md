@@ -55,11 +55,45 @@ Escaneie o QR exibido com o WhatsApp do número do bot. A sessão é salva em
 | Comando | Descrição |
 |---------|-----------|
 | `!ping` | Status, latência e uptime |
-| `!menu` | Lista os comandos disponíveis |
+| `!menu` | Lista os comandos (agrupados por categoria) |
 | `!dono` | Mostra o dono (T4) e a IA (Masayoshi) |
-| `!sticker` (`!fig`, `!s`) | Converte imagem/vídeo curto em figurinha |
-| `!level` (`!nivel`) | Mostra seu nível e XP |
-| `!rank` (`!top`) | Ranking de XP do grupo |
+| `!level` (`!nivel`) / `!rank` | Seu nível/XP e o ranking de XP |
+
+**Mídia**
+
+| Comando | Descrição |
+|---------|-----------|
+| `!sticker` (`!fig`, `!s`) | Imagem/vídeo curto → figurinha |
+| `!toimg` | Figurinha → imagem |
+| `!emojimix 😀 😎` | Combina dois emojis numa figurinha |
+| `!traduzir [idioma] <texto>` | Traduz texto (padrão: português) |
+| `!ler` | Extrai texto de uma imagem (OCR) |
+
+**Áudio**
+
+| Comando | Descrição |
+|---------|-----------|
+| `!tts <texto>` (`!voz`) | Texto → voz |
+| `!viraraudio` (`!mp3`) | Vídeo → áudio |
+| `!grave` `!agudo` `!rapido` `!lento` `!reverse` `!robot` `!volume` | Efeitos sobre um áudio citado |
+
+**Downloads**
+
+| Comando | Descrição |
+|---------|-----------|
+| `!play <nome\|link>` | Baixa o áudio (YouTube) |
+| `!video <nome\|link>` | Baixa o vídeo |
+| `!baixar`/`!tiktok`/`!instagram`/`!twitter`/`!facebook <link>` | Baixa vídeo de redes sociais |
+
+**Jogos**
+
+| Comando | Descrição |
+|---------|-----------|
+| `!velha @oponente` | Jogo da velha (depois `!velha <1-9>`) |
+| `!forca` | Jogo da forca (`!forca <letra\|palavra>`) |
+| `!anagrama` / `!quiz` | Desembaralhe a palavra / trivia |
+| `!ppt pedra\|papel\|tesoura` | Pedra, papel e tesoura |
+| `!enquete Pergunta \| op1 \| op2` | Cria uma enquete nativa |
 
 **Administração de grupo** (requer admin; o bot precisa ser admin)
 
@@ -69,11 +103,23 @@ Escaneie o QR exibido com o WhatsApp do número do bot. A sessão é salva em
 | `!promover` / `!rebaixar` | Dá/remove cargo de admin |
 | `!grupo abrir\|fechar` | Abre/fecha o grupo |
 | `!todos` (`!marcar`) | Marca todos os membros |
+| `!del` | Apaga a mensagem citada |
+| `!adv` / `!advs` / `!resetadv` | Advertências (remove com 3) |
+| `!rankmsg` / `!msgs` | Ranking e contagem de mensagens |
 | `!link` | Link de convite do grupo |
 | `!welcome on\|off` | Ativa/desativa boas-vindas |
 
-> O sistema de XP concede pontos por atividade (com cooldown anti-farm) e anuncia
-> quando alguém sobe de nível.
+> XP é concedido por atividade (com cooldown anti-farm) e o bot anuncia quando alguém sobe de
+> nível. Comandos pesados (downloads, mídia) têm cooldown próprio.
+
+### Observações
+
+- **Downloads**: arquivos muito grandes são recusados pelo limite do WhatsApp (áudio ~16MB);
+  algumas redes sociais podem exigir login e falhar.
+- **`!ler` (OCR)**: baixa o modelo de idioma na primeira execução (requer internet).
+- **`!traduzir` e `!emojimix`**: usam endpoints públicos não oficiais e podem ficar indisponíveis.
+- **`!del`** exige o bot como admin; **`!limpar`** só limpa visualmente (o WhatsApp não permite
+  apagar o histórico de terceiros).
 
 ## Adicionando comandos
 

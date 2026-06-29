@@ -1,8 +1,8 @@
 # Dependências
 node_modules/
 
-# Estado de runtime: sessão do WhatsApp + dados persistidos
-data/
+# Estado de runtime: sessão do WhatsApp + dados persistidos (apenas a pasta da raiz)
+/data/
 
 # Variáveis de ambiente / segredos
 .env

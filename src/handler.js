@@ -1,8 +1,12 @@
 'use strict'
 
 const leveling = require('./lib/leveling')
+const ratelimit = require('./lib/ratelimit')
+const { store } = require('./lib/store')
 const { getAdmins, botJid } = require('./lib/group')
 const { emoji } = require('./ui/theme')
+
+const counters = store('counters')
 
 /**
  * Extrai o texto de uma mensagem do Baileys, cobrindo os tipos comuns.
@@ -37,6 +41,14 @@ function createHandler ({ config, commands }) {
         const isGroup = from.endsWith('@g.us')
         const sender = isGroup ? msg.key.participant : from
         if (!sender) continue
+
+        // Contador de mensagens por grupo (para !rankmsg).
+        if (isGroup) {
+          counters.update(from, (c) => {
+            c[sender] = (c[sender] || 0) + 1
+            return c
+          }, {})
+        }
 
         // XP por atividade (qualquer mensagem, respeitando cooldown).
         const xp = leveling.grant(sender)
@@ -90,6 +102,15 @@ function createHandler ({ config, commands }) {
             typeof content === 'string' ? { text: content } : content,
             { quoted: msg }
           )
+
+        // Cooldown por comando (donos isentos).
+        if (command.cooldown && !isOwner) {
+          const wait = ratelimit.check(command.name, sender, command.cooldown)
+          if (wait > 0) {
+            await reply(`${emoji.moon} Aguarde ${wait}s para usar *${config.prefix}${command.name}* novamente.`)
+            continue
+          }
+        }
 
         await command.run({
           sock,

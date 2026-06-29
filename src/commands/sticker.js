@@ -9,6 +9,7 @@ const MAX_VIDEO_SECONDS = 10
 module.exports = {
   name: 'sticker',
   aliases: ['fig', 's', 'figu'],
+  category: 'Mídia',
   desc: 'Transforma imagem ou vídeo curto em figurinha.',
   async run ({ sock, msg, from, reply, config }) {
     const media = resolveMedia(msg)

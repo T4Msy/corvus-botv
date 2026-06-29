@@ -21,13 +21,16 @@ function loadCommands () {
 
   for (const file of files) {
     const mod = require(path.join(dir, file))
-    if (!mod || !mod.name || typeof mod.run !== 'function') {
-      console.warn(`[registry] Ignorando ${file}: faltam "name" ou "run".`)
-      continue
-    }
-    const names = [mod.name, ...(mod.aliases || [])]
-    for (const n of names) {
-      commands.set(n.toLowerCase(), mod)
+    // Um arquivo pode exportar um comando ou um array de comandos.
+    const list = Array.isArray(mod) ? mod : [mod]
+    for (const cmd of list) {
+      if (!cmd || !cmd.name || typeof cmd.run !== 'function') {
+        console.warn(`[registry] Ignorando ${file}: faltam "name" ou "run".`)
+        continue
+      }
+      for (const n of [cmd.name, ...(cmd.aliases || [])]) {
+        commands.set(n.toLowerCase(), cmd)
+      }
     }
   }
 
