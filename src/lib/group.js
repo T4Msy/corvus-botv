@@ -2,16 +2,34 @@
 
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 
-/** Retorna os JIDs dos administradores a partir do groupMetadata. */
+/**
+ * Retorna TODAS as identidades normalizadas dos administradores do grupo.
+ * Grupos novos usam o formato @lid além do JID de telefone; cada
+ * participante pode expor id (lid), jid e phoneNumber — coletamos todos
+ * para a comparação nunca falhar por diferença de formato.
+ */
 function getAdmins (metadata) {
-  return (metadata.participants || [])
-    .filter((p) => p.admin === 'admin' || p.admin === 'superadmin')
-    .map((p) => p.id)
+  const out = new Set()
+  for (const p of metadata.participants || []) {
+    if (p.admin === 'admin' || p.admin === 'superadmin') {
+      for (const v of [p.id, p.jid, p.phoneNumber]) {
+        if (v) out.add(jidNormalizedUser(v))
+      }
+    }
+  }
+  return [...out]
 }
 
 /** JID normalizado do próprio bot (sem o sufixo de device). */
 function botJid (sock) {
   return sock.user?.id ? jidNormalizedUser(sock.user.id) : null
+}
+
+/** Todas as identidades do bot (JID de telefone e LID, quando houver). */
+function botJids (sock) {
+  return [sock.user?.id, sock.user?.lid]
+    .filter(Boolean)
+    .map(jidNormalizedUser)
 }
 
 /**
@@ -25,4 +43,4 @@ function getTargets (msg) {
   return ctx?.participant ? [ctx.participant] : []
 }
 
-module.exports = { getAdmins, botJid, getTargets }
+module.exports = { getAdmins, botJid, botJids, getTargets }

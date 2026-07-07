@@ -1,69 +1,86 @@
 'use strict'
 
-const { box, emoji } = require('../ui/theme')
+const fs = require('fs')
+const path = require('path')
+const { box, divider, emoji, error } = require('../ui/theme')
+const { groupByCategory } = require('../lib/categories')
+const { commandsOfCategory, categoryToText, commandCard } = require('../lib/menuview')
 
-const ORDER = ['Geral', 'Mídia', 'Áudio', 'Jogos', 'Downloads', 'Admin', 'Dono']
+const MENU_IMAGE = path.resolve(__dirname, '..', '..', 'assets', 'images', 'menu.jpg')
 
-function categoryOf (cmd) {
-  if (cmd.ownerOnly) return 'Dono'
-  if (cmd.category) return cmd.category
-  if (cmd.adminOnly) return 'Admin'
-  return 'Geral'
+/** Normaliza para comparação: minúsculas e sem acentos. */
+function normalize (s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
+/** Rótulo digitável de cada categoria (Administração vira "admin"). */
+function shortcutOf (cat) {
+  return cat === 'Administração' ? 'admin' : cat.toLowerCase()
+}
+
+/** Menu completo (todas as categorias) em texto. */
+function fullMenu (cats, byCat, config) {
+  const toItem = (c) => `${config.prefix}${c.name}${c.desc ? ` — ${c.desc}` : ''}`
+  const groups = cats.map(cat => ({
+    section: cat,
+    items: (byCat[cat] || []).sort((a, b) => a.name.localeCompare(b.name)).map(toItem)
+  }))
+  return box(config.botName, groups)
 }
 
 module.exports = {
   name: 'menu',
   aliases: ['help', 'ajuda', 'comandos'],
   category: 'Geral',
-  desc: 'Lista os comandos por categoria.',
-  async run ({ sock, from, msg, config, commands, sender }) {
+  desc: 'Menu de comandos: use sem argumento, com <categoria>, <comando> ou "geral".',
+  async run ({ sock, from, msg, args, config, commands, isOwner, reply }) {
     const unique = [...new Set(commands.values())]
-    const isOwner = config.isOwner(sender)
     const visible = unique.filter(c => !c.ownerOnly || isOwner)
+    const { byCat, cats } = groupByCategory(visible)
 
-    const byCat = {}
-    for (const c of visible) {
-      const cat = categoryOf(c)
-      ;(byCat[cat] = byCat[cat] || []).push(c)
+    const query = normalize(args.join(' ').trim())
+
+    if (query) {
+      // /menu geral — todos os comandos juntos.
+      if (query === 'geral') {
+        await reply(fullMenu(cats, byCat, config))
+        return
+      }
+
+      // /menu <categoria> — aceita o atalho (admin) e o nome completo.
+      const cat = cats.find(c => normalize(shortcutOf(c)) === query || normalize(c) === query)
+      if (cat) {
+        await reply(categoryToText(cat, commandsOfCategory(cat, commands, isOwner), config))
+        return
+      }
+
+      // /menu <comando> — cartão de detalhe.
+      const cmd = commands.get(query)
+      if (cmd && (!cmd.ownerOnly || isOwner)) {
+        await reply(commandCard(cmd, config))
+        return
+      }
+
+      await reply(error(`Não encontrei *${args.join(' ')}*. Use *${config.prefix}menu* para ver as categorias.`))
+      return
     }
 
-    const cats = [
-      ...ORDER.filter(c => byCat[c]),
-      ...Object.keys(byCat).filter(c => !ORDER.includes(c))
-    ]
+    // /menu — foto com as categorias na legenda.
+    const shortcuts = cats.map(cat => `${emoji.bullet} *${config.prefix}menu ${shortcutOf(cat)}*`)
+    shortcuts.push(`${emoji.bullet} *${config.prefix}menu geral* — todos os comandos`)
 
-    // Tenta enviar lista nativa do WhatsApp (interativa por categoria).
-    const rows = cats.map(cat => {
-      const cmdList = (byCat[cat] || [])
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .slice(0, 6)
-        .map(c => `${config.prefix}${c.name}`)
-        .join('  ')
-      return { title: cat, description: cmdList || '—', rowId: `menu_cat:${cat}` }
-    })
+    const caption =
+      `*${config.botName} Bot* ${emoji.wine}\n` +
+      `${divider()}\n` +
+      `${shortcuts.join('\n')}\n\n` +
+      `${emoji.wine} _Erga a taça e escolha o seu caminho._`
 
     try {
-      await sock.sendMessage(from, {
-        listMessage: {
-          title: `${emoji.raven} ${config.botName}`,
-          description: `Agente de *${config.iaName}* — selecione uma categoria`,
-          buttonText: 'Ver categorias',
-          listType: 1,
-          sections: [{ title: 'Categorias', rows }]
-        }
-      }, { quoted: msg })
-    } catch {
-      // Fallback: menu em texto caso listMessage não seja suportado.
-      const toItem = (c) => `${config.prefix}${c.name}${c.desc ? ` — ${c.desc}` : ''}`
-      const groups = cats.map(cat => ({
-        section: cat,
-        items: (byCat[cat] || []).sort((a, b) => a.name.localeCompare(b.name)).map(toItem)
-      }))
-      await sock.sendMessage(
-        from,
-        { text: `${emoji.moon} Agente de *${config.iaName}*\n\n` + box(`${config.botName} ${emoji.raven}`, groups) },
-        { quoted: msg }
-      )
+      const image = fs.readFileSync(MENU_IMAGE)
+      await sock.sendMessage(from, { image, caption }, { quoted: msg })
+    } catch (err) {
+      console.error('[menu] falha ao enviar a arte:', err.message)
+      await reply(caption)
     }
   }
 }

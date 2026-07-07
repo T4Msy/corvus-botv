@@ -19,8 +19,10 @@ function printBanner (config) {
   cfonts.say(`${config.botName} • agente de ${config.iaName}`, {
     font: 'console',
     align: 'center',
-    colors: ['magenta']
+    colors: ['red']
   })
+
+  console.log('\x1b[31m%s\x1b[0m', '                         🍷 elegância · autoridade · mistério')
 }
 
 module.exports = { printBanner }

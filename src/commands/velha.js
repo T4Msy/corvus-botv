@@ -16,14 +16,14 @@ module.exports = {
   aliases: ['jogodavelha', 'ttt'],
   category: 'Jogos',
   groupOnly: true,
-  desc: 'Jogo da velha: !velha @oponente para começar, !velha <1-9> para jogar.',
+  desc: 'Jogo da velha: marque @oponente para começar e jogue com <1-9>.',
   async run ({ sock, from, sender, args, msg, reply, config }) {
     const game = games.get(from, null)
     const arg = args[0]
 
     // Jogada: !velha <1-9>
     if (/^[1-9]$/.test(arg || '')) {
-      if (!game) { await reply('Não há jogo em andamento. Inicie com *!velha @oponente*.'); return }
+      if (!game) { await reply(`Não há jogo em andamento. Inicie com *${config.prefix}velha @oponente*.`); return }
       const mark = game.players.X === sender ? 'X' : game.players.O === sender ? 'O' : null
       if (!mark) { await reply('Você não está nesta partida.'); return }
       if (game.turn !== mark) { await reply('Não é sua vez.'); return }

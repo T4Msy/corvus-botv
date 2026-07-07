@@ -1,7 +1,7 @@
 'use strict'
 
 const { store } = require('../lib/store')
-const { emoji } = require('../ui/theme')
+const { emoji, header, loading } = require('../ui/theme')
 
 const eventos = store('eventos')
 
@@ -24,7 +24,7 @@ module.exports = {
   category: 'Geral',
   groupOnly: true,
   fetchMeta: true,
-  desc: 'Agenda de eventos. Admins: !evento add / !evento del <n>.',
+  desc: 'Agenda de eventos. Admins: evento add | evento del <n>.',
   async run ({ args, from, sender, isAdmin, isOwner, reply, config }) {
     const sub = args[0]?.toLowerCase()
 
@@ -68,12 +68,12 @@ module.exports = {
 
     if (!list.length) {
       await reply(
-        `${emoji.moon} Nenhum evento agendado.\n\n` +
+        loading('Nenhum evento agendado.') + '\n\n' +
         `_Admins: *${config.prefix}evento add <título> | <desc> | <dd/mm/aaaa> | <hh:mm>*_`
       )
       return
     }
 
-    await reply(`${emoji.raven} *Próximos eventos*\n\n` + list.map(formatEvento).join('\n\n'))
+    await reply(`${header('Próximos eventos')}\n\n` + list.map(formatEvento).join('\n\n'))
   }
 }

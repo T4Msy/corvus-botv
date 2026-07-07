@@ -12,6 +12,8 @@ const {
   Browsers
 } = require('@whiskeysockets/baileys')
 
+const { remember, recall, markSent } = require('./lib/msgcache')
+
 const SESSION_DIR = path.resolve(__dirname, '..', 'data', 'session')
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'silent' })
@@ -33,10 +35,32 @@ async function startConnection (config, handlers = {}) {
     logger,
     auth: state,
     browser: Browsers.appropriate('Corvus'),
-    printQRInTerminal: false
+    printQRInTerminal: false,
+    // Honra pedidos de reenvio: sem isso, quem não conseguir descriptografar
+    // uma mensagem fica preso no "Aguardando mensagem".
+    getMessage: async (key) => recall(key.id)
   })
 
   sock.ev.on('creds.update', saveCreds)
+
+  // Guarda tudo que sai da conta para poder reenviar sob demanda (getMessage).
+  sock.ev.on('messages.upsert', ({ messages }) => {
+    for (const m of messages) {
+      if (m.key?.fromMe && m.message) remember(m.key.id, m.message)
+    }
+  })
+
+  // Marca o que o CÓDIGO envia, para o handler não confundir com comandos
+  // digitados no próprio aparelho do bot.
+  const origSendMessage = sock.sendMessage.bind(sock)
+  sock.sendMessage = async (...args) => {
+    const sent = await origSendMessage(...args)
+    if (sent?.key?.id) {
+      markSent(sent.key.id)
+      if (sent.message) remember(sent.key.id, sent.message)
+    }
+    return sent
+  }
 
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update

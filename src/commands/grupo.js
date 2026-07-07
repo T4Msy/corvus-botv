@@ -8,7 +8,7 @@ module.exports = {
   groupOnly: true,
   adminOnly: true,
   botAdmin: true,
-  desc: 'Abre ou fecha o grupo: !grupo abrir | fechar.',
+  desc: 'Abre ou fecha o grupo: grupo abrir | fechar.',
   async run ({ sock, from, args, reply, config }) {
     const opt = (args[0] || '').toLowerCase()
     if (opt === 'fechar') {

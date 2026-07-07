@@ -29,7 +29,7 @@ module.exports = {
   name: 'forca',
   category: 'Jogos',
   groupOnly: true,
-  desc: 'Jogo da forca: !forca para iniciar, !forca <letra|palavra> para jogar.',
+  desc: 'Jogo da forca: use sem argumento para iniciar e com <letra ou palavra> para jogar.',
   async run ({ from, args, reply, config }) {
     const game = games.get(from, null)
     const palpite = args.join(' ').trim().toUpperCase()

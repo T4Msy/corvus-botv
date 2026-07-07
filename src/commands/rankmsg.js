@@ -1,7 +1,7 @@
 'use strict'
 
 const { store } = require('../lib/store')
-const { emoji } = require('../ui/theme')
+const { emoji, header, loading } = require('../ui/theme')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -49,7 +49,7 @@ module.exports = {
       .slice(0, 10)
 
     if (!top.length) {
-      await sock.sendMessage(from, { text: `${emoji.moon} Ainda não contei mensagens neste grupo.` }, { quoted: msg })
+      await sock.sendMessage(from, { text: loading('Ainda não contei mensagens neste grupo.') }, { quoted: msg })
       return
     }
 
@@ -63,12 +63,12 @@ module.exports = {
       return `${pos} @${id.split('@')[0]} — ${n} msgs`
     })
 
-    const footer = `\n${emoji.moon} Hoje: *${dayTotal}* msgs  ${emoji.raven} Esta semana: *${weekTotal}* msgs`
+    const footer = `\n${emoji.bullet} Hoje: *${dayTotal}* msgs  ${emoji.bullet} Esta semana: *${weekTotal}* msgs`
 
     await sock.sendMessage(
       from,
       {
-        text: `${emoji.crown} *Ranking de mensagens*\n\n${lines.join('\n')}${footer}`,
+        text: `${header('Ranking de mensagens')}\n\n${lines.join('\n')}${footer}`,
         mentions: top.map(([id]) => id)
       },
       { quoted: msg }

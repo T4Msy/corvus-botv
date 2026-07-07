@@ -29,60 +29,89 @@ node -e "require('./src/config'); require('./src/commands/_registry').loadComman
 ```
 src/
   index.js        # bootstrap: banner → load commands → connect (handlers obj)
-  connection.js   # Baileys socket: QR, auto-reconnect; wires onMessage + onGroupParticipants
+  connection.js   # Baileys socket: QR, auto-reconnect, getMessage (retry), sendMessage wrapper
   config.js       # loads config/settings.json + .env, exposes config.isOwner()
-  handler.js      # message → XP grant → prefix → resolve command → permissions → run
+  handler.js      # message → dedupe/fromMe → counters/XP → antilink → prefix → permissions → run
   commands/       # one file per command (or an ARRAY of commands), auto-loaded by _registry.js
     _registry.js  # scans *.js (except _-prefixed) into a Map (name + aliases); accepts arrays
-    ping menu dono level rank                        # general
+    ping menu dono level rank corvusfrase regras diretoria evento   # Geral (menu: "Utilidades")
     sticker toimg emojimix traduzir ler              # Mídia
-    tts viraraudio efeitos(grave/agudo/...)          # Áudio (efeitos.js exports an array)
-    play video redes(tiktok/instagram/...)           # Downloads
-    velha forca anagrama quiz ppt enquete            # Jogos
-    ban promover rebaixar grupo todos del adv* rankmsg msgs limpar link welcome  # Admin
+    tts viraraudio                                   # Áudio
+    play redes(baixar/tiktok/instagram/...)          # Downloads
+    velha forca anagrama quiz ppt enquete            # Jogos (menu: "Diversão")
+    ban promover rebaixar grupo todos del adv advs resetadv antilink
+    rankmsg msgs limpar link welcome                 # Admin (menu: "Administração")
+    reiniciar bcgrupos                               # Dono (ownerOnly)
   events/
-    groupParticipants.js  # join/leave welcome messages (toggle via !welcome)
+    groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
     leveling.js   # XP/level system (uses store('levels'))
     ratelimit.js  # per-(command,user) cooldown for the `cooldown` flag
-    group.js      # getAdmins(), botJid(), getTargets()
+    group.js      # getAdmins() (all @lid/phone variants), botJid(), botJids(), getTargets()
+    warns.js      # applyWarn() shared by /adv and antilink (3 warns ⇒ remove)
+    categories.js # category labels/order + groupByCategory (internal name → display label)
+    menuview.js   # categoryToText(), commandCard(), commandsOfCategory() (menu rendering)
+    msgcache.js   # sent-message cache: getMessage retries (anti-"aguardando mensagem")
+                  # + markSent/wasSentByBot (distinguish code-sent vs host-typed fromMe)
     media.js      # resolveMedia()/downloadMedia() — image/video/audio/sticker, quoted or own
     sticker.js    # createSticker(): sharp (image) + ffmpeg-static (video) + node-webpmux (EXIF)
-    audio.js      # ffmpeg-static effects + toMp3/toOpus
-    tts.js translate.js ocr.js emojimix.js ytdlp.js  # feature helpers (free/no-key services)
+    audio.js      # ffmpeg effects lib (applyEffect/EFFECTS) + toMp3/toOpus — effects commands
+                  # were removed; the lib stays for /tts and /viraraudio
+    tts.js translate.js ocr.js emojimix.js ytdlp.js cobalt.js  # feature helpers (free/no-key)
     games/ttt.js  # pure tic-tac-toe logic
     fetch.js text.js
   data/           # game data: anagrama.json, quiz.json (committed)
   ui/
-    theme.js      # SINGLE source of visual style: emojis, palette, menu box()
-    banner.js     # terminal CORVUS banner (cfonts)
-config/settings.json  # prefix, botName, iaName, owner T4, flags
-assets/           # stickers/<category>/ (ex-FIGURINHAS), audios/, images/ (ex-logos)
+    theme.js      # SINGLE source of visual style: emojis, palette, tag/header/divider,
+                  # success/error/loading/info, box() — red/black + wine-glass identity
+    banner.js     # terminal CORVUS banner (cfonts, red)
+config/settings.json  # prefix (currently "/"), botName, iaName, owner T4, flags (unused today)
+assets/           # stickers/<category>/, audios/ (both unused for now), images/menu.jpg (menu art)
 data/             # runtime: WhatsApp session + JSON state (gitignored)
 legacy/           # archived Sakura-Bot v6 — reference only, do not run/edit
 ```
 
 ### How a command flows
 
-1. `connection.js` emits `messages.upsert` → `handler.js`.
-2. The handler extracts text (`extractText` covers conversation / captions), checks the
-   prefix, splits into command + args, and looks the command up in the registry Map.
-3. It enforces `ownerOnly` (via `config.isOwner(sender)`) and `groupOnly`, then calls
-   `command.run(ctx)`. Errors are caught per-message — a failing command never crashes the bot.
+1. `connection.js` emits `messages.upsert` → `handler.js`. It accepts `notify` (third parties)
+   and `append` (own account). Own-account messages typed on the bot's phone count as **owner
+   commands**; messages the code itself sent are skipped via `msgcache.wasSentByBot()` (with a
+   200 ms delay to close the send/receive race) and a processed-id dedupe set.
+2. The handler extracts text (`extractText` covers conversation / captions / list replies),
+   runs antilink (if enabled for the group), checks the prefix, splits into command + args,
+   and looks the command up in the registry Map.
+3. It enforces permissions, then calls `command.run(ctx)`. A failing command replies a themed
+   error and never crashes the bot.
+
+**Identity note (@lid):** new groups identify participants as `@lid` instead of phone JIDs.
+All admin/owner comparisons must go through `lib/group.js` (`getAdmins` collects every id/jid/
+phoneNumber variant; `botJids()` covers the bot's phone JID + LID) and `msg.key.participantPn`.
+Never compare raw JID strings.
+
+**"Aguardando mensagem" fix:** the socket has a `getMessage` callback backed by
+`lib/msgcache.js`; every sent message is cached (wrapped `sock.sendMessage`) so decryption
+retries can be honored. Keep this intact when touching `connection.js`.
+
+**Interactive UI warning:** listMessage / nativeFlow buttons / poll-menus were all tried and
+**removed** — none renders consistently across phone + Web/Desktop for normal accounts. The
+menu is 100% text (`/menu`, `/menu <categoria>`, `/menu geral`, `/menu <comando>` — rendering
+in `lib/menuview.js`). Don't reintroduce interactive formats without testing on both.
 
 ### Adding a command
 
 Drop a file in `src/commands/` exporting
 `{ name, aliases?, category?, cooldown?, ownerOnly?, groupOnly?, adminOnly?, botAdmin?, desc?, run(ctx) }`.
-A file may also export an **array** of such objects (see `efeitos.js`, `redes.js`).
+A file may also export an **array** of such objects (see `redes.js`).
 It is auto-registered. Permission flags are enforced by the handler before `run`:
-- `ownerOnly` → only `config.owner.numbers`
+- `ownerOnly` → only `config.owner.numbers` (or the hosting account itself)
 - `groupOnly` → only in groups
 - `adminOnly` → group admins (or owner)
 - `botAdmin` → the bot itself must be group admin
 - `cooldown` (seconds) → per-user rate limit via `lib/ratelimit.js` (owners exempt)
-- `category` → menu grouping (Geral, Mídia, Áudio, Jogos, Downloads; `adminOnly` ⇒ Admin)
+- `category` → menu grouping. Internal names (`Geral`, `Jogos`, `Admin`, …) are mapped to
+  display labels (Utilidades, Diversão, Administração) by `lib/categories.js`; `ownerOnly` ⇒
+  Dono, `adminOnly` ⇒ Admin. Don't put display labels in command files.
 
 When a command sets `adminOnly`/`botAdmin`, the handler resolves `groupMetadata` once and
 passes `isAdmin`, `isBotAdmin`, `groupMetadata` in `ctx`. Full `ctx`: `sock, msg, args, text,

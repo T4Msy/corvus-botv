@@ -1,6 +1,6 @@
 'use strict'
 
-const { emoji } = require('../ui/theme')
+const { emoji, header } = require('../ui/theme')
 
 module.exports = {
   name: 'dono',
@@ -8,9 +8,10 @@ module.exports = {
   desc: 'Mostra quem é o dono do bot.',
   async run ({ reply, config }) {
     await reply(
+      `${header(config.botName)}\n` +
       `${emoji.crown} *Dono:* ${config.owner.nick}\n` +
-      `${emoji.crystal} *IA:* ${config.iaName}\n` +
-      `${emoji.raven} *Bot:* ${config.botName}`
+      `${emoji.bullet} *IA:* ${config.iaName}\n` +
+      `${emoji.bullet} *Bot:* ${config.botName}`
     )
   }
 }

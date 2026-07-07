@@ -9,7 +9,7 @@ module.exports = {
   aliases: ['musica', 'yta'],
   category: 'Downloads',
   cooldown: 15,
-  desc: 'Baixa o áudio de uma música/vídeo: !play <nome ou link>.',
+  desc: 'Baixa o áudio de uma música ou vídeo: play <nome ou link>.',
   async run ({ sock, from, text, msg, reply }) {
     if (!text) { await reply(`${emoji.feather} Use *play <nome ou link>*.`); return }
 

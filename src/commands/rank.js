@@ -2,7 +2,7 @@
 
 const leveling = require('../lib/leveling')
 const { h2k } = require('../lib/text')
-const { emoji } = require('../ui/theme')
+const { header, info } = require('../ui/theme')
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
@@ -13,7 +13,7 @@ module.exports = {
   async run ({ sock, from, msg }) {
     const top = leveling.top(10)
     if (!top.length) {
-      await sock.sendMessage(from, { text: 'Ainda não há XP registrado.' }, { quoted: msg })
+      await sock.sendMessage(from, { text: info('Ainda não há XP registrado.') }, { quoted: msg })
       return
     }
 
@@ -25,7 +25,7 @@ module.exports = {
     await sock.sendMessage(
       from,
       {
-        text: `${emoji.crown} *Ranking de XP*\n\n${lines.join('\n')}`,
+        text: `${header('Ranking de XP')}\n\n${lines.join('\n')}`,
         mentions: top.map((u) => u.id)
       },
       { quoted: msg }

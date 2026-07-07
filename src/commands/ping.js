@@ -1,7 +1,7 @@
 'use strict'
 
 const { formatUptime } = require('../lib/text')
-const { emoji } = require('../ui/theme')
+const { emoji, header } = require('../ui/theme')
 
 module.exports = {
   name: 'ping',
@@ -11,7 +11,7 @@ module.exports = {
     const sentAt = (msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now())
     const latency = Date.now() - sentAt
     await reply(
-      `${emoji.raven} *Corvus ativo*\n` +
+      `${header('Corvus ativo')}\n` +
       `${emoji.bullet} Latência: ${latency >= 0 ? latency : 0} ms\n` +
       `${emoji.bullet} Uptime: ${formatUptime(process.uptime())}`
     )

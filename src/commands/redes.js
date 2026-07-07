@@ -9,10 +9,10 @@ module.exports = {
   category: 'Downloads',
   cooldown: 20,
   desc: 'Baixa vídeo de qualquer plataforma (TikTok, Instagram, Twitter, YouTube…).',
-  async run ({ sock, from, args, msg, reply }) {
+  async run ({ sock, from, args, msg, reply, config }) {
     const link = args[0]
     if (!link || !/^https?:\/\//i.test(link)) {
-      await reply(`${emoji.feather} Envie o link do vídeo. Ex.: *!baixar <link>*`)
+      await reply(`${emoji.feather} Envie o link do vídeo. Ex.: *${config.prefix}baixar <link>*`)
       return
     }
     await reply(`${emoji.moon} Baixando...`)

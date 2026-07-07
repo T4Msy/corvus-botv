@@ -10,13 +10,13 @@ module.exports = {
   name: 'anagrama',
   category: 'Jogos',
   groupOnly: true,
-  desc: 'Desembaralhe a palavra: !anagrama para iniciar, !anagrama <palpite> para responder.',
+  desc: 'Desembaralhe a palavra: use sem argumento para iniciar e com <palpite> para responder.',
   async run ({ from, args, reply, config }) {
     const game = games.get(from, null)
     const guess = args.join(' ').trim().toUpperCase()
 
     if (guess) {
-      if (!game) { await reply('Inicie com *!anagrama*.'); return }
+      if (!game) { await reply(`Inicie com *${config.prefix}anagrama*.`); return }
       if (guess === game.palavra) {
         await games.delete(from)
         await reply(`${emoji.crown} Acertou! Era *${game.palavra}*.`)

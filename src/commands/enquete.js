@@ -7,7 +7,7 @@ module.exports = {
   aliases: ['poll', 'votacao'],
   category: 'Jogos',
   groupOnly: true,
-  desc: 'Cria uma enquete: !enquete Pergunta | opção1 | opção2 | ...',
+  desc: 'Cria uma enquete: enquete Pergunta | opção1 | opção2 | ...',
   async run ({ sock, from, text, reply, config }) {
     const parts = text.split('|').map((p) => p.trim()).filter(Boolean)
     if (parts.length < 3) {

@@ -2,7 +2,7 @@
 
 const leveling = require('../lib/leveling')
 const { h2k } = require('../lib/text')
-const { emoji } = require('../ui/theme')
+const { emoji, header } = require('../ui/theme')
 
 module.exports = {
   name: 'level',
@@ -14,7 +14,7 @@ module.exports = {
       from,
       {
         text:
-          `${emoji.crystal} *Perfil de @${sender.split('@')[0]}*\n` +
+          `${header(`Perfil de @${sender.split('@')[0]}`)}\n` +
           `${emoji.bullet} Nível: *${s.level}*\n` +
           `${emoji.bullet} XP: ${h2k(s.xp)}\n` +
           `${emoji.bullet} Faltam ${h2k(s.remaining)} XP para o nível ${s.level + 1}`,

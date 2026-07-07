@@ -1,7 +1,7 @@
 'use strict'
 
 const { store } = require('../lib/store')
-const { emoji } = require('../ui/theme')
+const { emoji, info } = require('../ui/theme')
 
 const groups = store('groups')
 
@@ -21,12 +21,12 @@ function createGroupParticipantsHandler () {
         const mention = `@${p.split('@')[0]}`
         if (action === 'add') {
           await sock.sendMessage(id, {
-            text: `${emoji.raven} Bem-vindo(a) ${mention} ao *${meta.subject}*!`,
+            text: `${emoji.wine} Bem-vindo(a) ${mention} ao *${meta.subject}*!`,
             mentions: [p]
           })
         } else if (action === 'remove') {
           await sock.sendMessage(id, {
-            text: `${emoji.feather} ${mention} saiu do grupo.`,
+            text: info(`${mention} saiu do grupo.`),
             mentions: [p]
           })
         }

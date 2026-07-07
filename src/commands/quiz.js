@@ -15,13 +15,13 @@ module.exports = {
   aliases: ['trivia'],
   category: 'Jogos',
   groupOnly: true,
-  desc: 'Trivia: !quiz para uma pergunta, !quiz <resposta> para responder.',
+  desc: 'Trivia: use sem argumento para uma pergunta e com <resposta> para responder.',
   async run ({ from, args, reply, config }) {
     const game = games.get(from, null)
     const answer = args.join(' ').trim()
 
     if (answer) {
-      if (!game) { await reply('Inicie com *!quiz*.'); return }
+      if (!game) { await reply(`Inicie com *${config.prefix}quiz*.`); return }
       if (normalize(answer) === normalize(game.resposta)) {
         await games.delete(from)
         await reply(`${emoji.crown} Acertou! A resposta era *${game.resposta}*.`)

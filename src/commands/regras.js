@@ -1,9 +1,9 @@
 'use strict'
 
 const { store } = require('../lib/store')
-const { emoji } = require('../ui/theme')
+const { emoji, header, info, success } = require('../ui/theme')
 
-const info = store('info')
+const infoStore = store('info')
 
 module.exports = {
   name: 'regras',
@@ -20,23 +20,23 @@ module.exports = {
         await reply(`${emoji.feather} Use: *${config.prefix}regras set <texto>* (use | para quebrar linha).`)
         return
       }
-      info.set('regras', texto.replace(/\s*\|\s*/g, '\n'))
-      await reply(`${emoji.check} Regras atualizadas.`)
+      infoStore.set('regras', texto.replace(/\s*\|\s*/g, '\n'))
+      await reply(success('Regras atualizadas.'))
       return
     }
 
     if (sub === 'clear') {
       if (!isOwner) { await reply(`${emoji.lock} Comando restrito ao dono.`); return }
-      info.delete('regras')
-      await reply(`${emoji.check} Regras removidas.`)
+      infoStore.delete('regras')
+      await reply(success('Regras removidas.'))
       return
     }
 
-    const regras = info.get('regras', null)
+    const regras = infoStore.get('regras', null)
     if (!regras) {
-      await reply(`${emoji.feather} Nenhuma regra configurada.\nDono: *${config.prefix}regras set <texto>*`)
+      await reply(info(`Nenhuma regra configurada.\nDono: *${config.prefix}regras set <texto>*`))
       return
     }
-    await reply(`${emoji.raven} *Regras da Masayoshi*\n\n${regras}`)
+    await reply(`${header('Regras da Masayoshi')}\n\n${regras}`)
   }
 }

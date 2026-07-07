@@ -1,61 +1,86 @@
 'use strict'
 
 /**
- * Tema visual do Corvus — corvo sombrio / Masayoshi.
- * Fonte ÚNICA de estilo. Menus e mensagens consomem daqui.
+ * Identidade visual do Corvus — elegância, mistério e autoridade em
+ * tons de vermelho e preto, com a taça de vinho como símbolo central.
+ * Fonte ÚNICA de estilo. Comandos e mensagens do sistema consomem daqui.
  */
 
 const emoji = {
-  raven: '🐦‍⬛',
-  feather: '🪶',
-  moon: '🌑',
-  dark: '🖤',
-  crystal: '🔮',
-  star: '✦',
-  bullet: '▸',
-  spark: '✧',
-  skull: '💀',
-  crown: '👑',
-  lock: '🔒',
-  check: '✓',
-  cross: '✗',
-  wine: '🍷',
-  candle: '🕯️',
-  dagger: '⚔️'
+  raven: '🐦‍⬛', // marca/mascote (Corvus = corvo)
+  wine: '🍷', // símbolo principal — destaque, identidade
+  crystal: '🍷', // destaque de conteúdo (resultado, perfil, tradução...)
+  toast: '🥂', // conquista/level up
+  feather: '🪶', // dica/instrução
+  moon: '🌑', // processamento/aguardando
+  lock: '🔒', // acesso restrito
+  check: '✓', // sucesso
+  cross: '✗', // erro
+  crown: '👑', // autoridade/dono
+  skull: '💀', // ação severa (banimento etc.)
+  dagger: '⚔️', // ação administrativa
+  bullet: '▸' // item de lista
 }
 
 const palette = {
-  primary: '#3b0764',
-  accent: '#7c3aed',
-  dark: '#09090b',
-  cfonts: ['#3b0764', '#7c3aed']
+  primary: '#7f1d1d', // vermelho vinho escuro
+  accent: '#dc2626', // vermelho vivo
+  dark: '#0a0a0a', // preto quase absoluto
+  cfonts: ['#dc2626', '#0a0a0a']
 }
 
-const border = {
-  top: '╭━━━〔 %s 〕━━━',
-  item: '│ ',
-  section: '├─〔 %s 〕',
-  bottom: '╰━━━━━━━━━━━━━━━━━━━'
+const line = '─'.repeat(24)
+
+/** Rótulo de destaque no estilo 「 🍷 」 TÍTULO 「 🍷 」 (menus interativos). */
+function tag (title) {
+  return `「 ${emoji.wine} 」 ${title} 「 ${emoji.wine} 」`
+}
+
+/** Cabeçalho padrão: título em negrito + taça de vinho + divisor fino. */
+function header (title) {
+  return `${emoji.wine} *${title}*\n${line}`
+}
+
+/** Divisor fino, para separar seções dentro de uma mesma mensagem. */
+function divider () {
+  return line
+}
+
+function success (text) {
+  return `${emoji.check} ${text}`
+}
+
+function error (text) {
+  return `${emoji.cross} ${text}`
+}
+
+function loading (text) {
+  return `${emoji.moon} ${text}`
+}
+
+function info (text) {
+  return `${emoji.feather} ${text}`
 }
 
 /**
- * Monta um bloco de menu formatado.
+ * Monta um bloco de menu formatado (usado no fallback em texto,
+ * quando o cliente não suporta listMessage).
  * @param {string} title
  * @param {Array<{ section?: string, items?: string[] }>} groups
  */
 function box (title, groups) {
-  const lines = [border.top.replace('%s', title)]
+  const lines = [header(title)]
   for (const group of groups) {
     if (group.section) {
-      lines.push(border.item.trimEnd())
-      lines.push(border.section.replace('%s', group.section))
+      lines.push('')
+      lines.push(`*${group.section}*`)
     }
     for (const item of group.items || []) {
-      lines.push(`${border.item}${emoji.bullet} ${item}`)
+      lines.push(`${emoji.bullet} ${item}`)
     }
   }
-  lines.push(border.bottom)
+  lines.push(line)
   return lines.join('\n')
 }
 
-module.exports = { emoji, palette, border, box }
+module.exports = { emoji, palette, tag, header, divider, success, error, loading, info, box }
