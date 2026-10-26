@@ -6,14 +6,14 @@ const { emoji, info } = require('../ui/theme')
 const groups = store('groups')
 
 /**
- * Handler de entradas/saídas de grupo. Só age se as boas-vindas estiverem
- * ativadas para aquele grupo (comando !welcome on).
+ * Handler de entradas/saídas de grupo. Só age se o Corvus estiver ativado
+ * no grupo (/corvusativar) e as boas-vindas também (/welcome on).
  */
 function createGroupParticipantsHandler () {
   return async function onGroupParticipants (sock, ev) {
     const { id, participants, action } = ev
     const conf = groups.get(id, {})
-    if (!conf.welcome) return
+    if (!conf.active || !conf.welcome) return
 
     try {
       const meta = await sock.groupMetadata(id)

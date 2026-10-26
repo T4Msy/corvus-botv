@@ -31,7 +31,7 @@ src/
   index.js        # bootstrap: banner → load commands → connect (handlers obj)
   connection.js   # Baileys socket: QR, auto-reconnect, getMessage (retry), sendMessage wrapper
   config.js       # loads config/settings.json + .env, exposes config.isOwner()
-  handler.js      # message → dedupe/fromMe → counters/XP → antilink → prefix → permissions → run
+  handler.js      # message → dedupe/fromMe → active-group gate → counters/XP → antilink → prefix → permissions → run
   commands/       # one file per command (or an ARRAY of commands), auto-loaded by _registry.js
     _registry.js  # scans *.js (except _-prefixed) into a Map (name + aliases); accepts arrays
     ping menu dono level rank corvusfrase regras diretoria evento   # Geral (menu: "Utilidades")
@@ -41,7 +41,7 @@ src/
     velha forca anagrama quiz ppt enquete            # Jogos (menu: "Diversão")
     ban promover rebaixar grupo todos del adv advs resetadv antilink
     rankmsg msgs limpar link welcome                 # Admin (menu: "Administração")
-    reiniciar bcgrupos                               # Dono (ownerOnly)
+    reiniciar bcgrupos corvusativar(+corvusdesativar) # Dono (ownerOnly)
   events/
     groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
@@ -78,6 +78,9 @@ legacy/           # archived Sakura-Bot v6 — reference only, do not run/edit
    and `append` (own account). Own-account messages typed on the bot's phone count as **owner
    commands**; messages the code itself sent are skipped via `msgcache.wasSentByBot()` (with a
    200 ms delay to close the send/receive race) and a processed-id dedupe set.
+   **Active-group gate:** the bot only works in groups the owner turned on with `/corvusativar`
+   (`groups[<jid>].active`). Inactive groups are ignored entirely (no commands, XP/level-up,
+   counters, antilink, welcome) except commands flagged `bypassActive`. DMs only serve the owner.
 2. The handler extracts text (`extractText` covers conversation / captions / list replies),
    runs antilink (if enabled for the group), checks the prefix, splits into command + args,
    and looks the command up in the registry Map.
@@ -109,6 +112,8 @@ It is auto-registered. Permission flags are enforced by the handler before `run`
 - `adminOnly` → group admins (or owner)
 - `botAdmin` → the bot itself must be group admin
 - `cooldown` (seconds) → per-user rate limit via `lib/ratelimit.js` (owners exempt)
+- `bypassActive` → runs even in groups where the Corvus is deactivated (only `/corvusativar`
+  and `/corvusdesativar` should need this)
 - `category` → menu grouping. Internal names (`Geral`, `Jogos`, `Admin`, …) are mapped to
   display labels (Utilidades, Diversão, Administração) by `lib/categories.js`; `ownerOnly` ⇒
   Dono, `adminOnly` ⇒ Admin. Don't put display labels in command files.
@@ -131,7 +136,7 @@ means editing one giant obfuscated blob.
   `data/name.json` with in-memory cache and atomic, queued writes. Never `fs.writeFileSync`
   raw JSON like the legacy did (that caused the corruption/race issues). Current collections:
   `levels` (XP), `groups` (toggles like welcome), `counters` (per-group message counts),
-  `warns` (advertências), and per-group game state (`ttt`, `forca`, `anagrama`, `quiz`).
+  `warns` (advertências), `groups` also holds `active` (/corvusativar), and per-group game state (`ttt`, `forca`, `anagrama`, `quiz`).
 
 ## Porting from legacy
 

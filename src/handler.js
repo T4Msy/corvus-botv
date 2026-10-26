@@ -64,6 +64,13 @@ function createHandler ({ config, commands }) {
     return false
   }
 
+  /** Comando que roda mesmo em grupo desativado (/corvusativar etc.). */
+  function isBypassCommand (text) {
+    if (!text.startsWith(config.prefix)) return false
+    const name = text.slice(config.prefix.length).trim().split(/\s+/)[0].toLowerCase()
+    return !!commands.get(name)?.bypassActive
+  }
+
   /** Inicializa cache de grupos na primeira mensagem recebida. */
   function initGroupCache (sock) {
     if (cacheReady) return
@@ -118,9 +125,26 @@ function createHandler ({ config, commands }) {
           : (fromMe ? botJid(sock) : from)
         if (!sender) continue
 
+        // Identidades do remetente: em grupos novos o participante chega
+        // como @lid; participantPn (quando presente) traz o telefone.
+        const senderIds = [sender, msg.key.participantPn]
+          .filter(Boolean)
+          .map(jidNormalizedUser)
+
+        const isOwner = fromMe || senderIds.some(j => config.isOwner(j))
+
+        const text = extractText(msg.message).trim()
+
+        // O Corvus só funciona em grupos ativados (/corvusativar). No privado
+        // só o dono é atendido; num grupo desativado só passam os comandos
+        // de ativação (bypassActive) — nada de XP, contadores ou antilink.
+        const active = isGroup && !!groupsConf.get(from, {}).active
+        if (!isGroup && !isOwner) continue
+        if (isGroup && !active && !isBypassCommand(text)) continue
+
         // Contador de mensagens: total + diário + semanal (não conta a
         // própria conta do bot, para não poluir ranking e nível).
-        if (isGroup && !fromMe) {
+        if (active && !fromMe) {
           const dayKey = getDateKey()
           const weekKey = getWeekKey()
           counters.update(from, (c) => {
@@ -139,7 +163,7 @@ function createHandler ({ config, commands }) {
         }
 
         // XP por atividade (mensagens de terceiros, respeitando cooldown).
-        if (!fromMe) {
+        if (active && !fromMe) {
           const xp = leveling.grant(sender)
           if (xp?.leveledUp) {
             await sock.sendMessage(from, {
@@ -149,10 +173,8 @@ function createHandler ({ config, commands }) {
           }
         }
 
-        const text = extractText(msg.message).trim()
-
         // Antilink: apaga convites de outros grupos e adverte (não-admins).
-        if (isGroup && !fromMe && groupsConf.get(from, {}).antilink && INVITE_RE.test(text)) {
+        if (active && !fromMe && groupsConf.get(from, {}).antilink && INVITE_RE.test(text)) {
           try {
             const meta = groupCache.get(from) || await sock.groupMetadata(from)
             if (meta) groupCache.set(from, meta)
@@ -175,7 +197,6 @@ function createHandler ({ config, commands }) {
         // respondem em texto (o menu atual é 100% texto).
         if (text.startsWith('menu_cat:')) {
           const cat = text.slice('menu_cat:'.length)
-          const isOwner = fromMe || config.isOwner(sender)
           const cmds = commandsOfCategory(cat, commands, isOwner)
           if (cmds.length) {
             await sock.sendMessage(from, { text: categoryToText(cat, cmds, config) }, { quoted: msg })
@@ -184,7 +205,6 @@ function createHandler ({ config, commands }) {
         }
         if (text.startsWith('menu_cmd:')) {
           const name = text.slice('menu_cmd:'.length).toLowerCase()
-          const isOwner = fromMe || config.isOwner(sender)
           const cmd = commands.get(name)
           if (cmd && (!cmd.ownerOnly || isOwner)) {
             await sock.sendMessage(from, { text: commandCard(cmd, config) }, { quoted: msg })
@@ -208,14 +228,6 @@ function createHandler ({ config, commands }) {
           }
           continue
         }
-
-        // Identidades do remetente: em grupos novos o participante chega
-        // como @lid; participantPn (quando presente) traz o telefone.
-        const senderIds = [sender, msg.key.participantPn]
-          .filter(Boolean)
-          .map(jidNormalizedUser)
-
-        const isOwner = fromMe || senderIds.some(j => config.isOwner(j))
 
         // Resolve metadados de grupo quando o comando precisa (adminOnly, botAdmin ou fetchMeta).
         let groupMetadata

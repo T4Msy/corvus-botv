@@ -15,6 +15,16 @@ function normalizeNumber (value) {
   return String(value || '').replace(/\D/g, '')
 }
 
+/**
+ * Forma canônica para comparar números: celulares brasileiros (55 + DDD +
+ * 9 + 8 dígitos) perdem o 9 extra, que o WhatsApp omite nos JIDs de vários
+ * DDDs — assim 5534984368429 e 553484368429 batem.
+ */
+function canonicalNumber (value) {
+  const num = normalizeNumber(value)
+  return /^55\d{2}9\d{8}$/.test(num) ? num.slice(0, 4) + num.slice(5) : num
+}
+
 function loadSettings () {
   let raw
   try {
@@ -53,8 +63,8 @@ function loadSettings () {
 
     /** Retorna true se o JID/número pertence a um dono configurado. */
     isOwner (jid) {
-      const num = normalizeNumber(jid)
-      return ownerNumbers.includes(num)
+      const num = canonicalNumber(String(jid || '').split(/[:@]/)[0])
+      return ownerNumbers.some(n => canonicalNumber(n) === num)
     }
   }
 
