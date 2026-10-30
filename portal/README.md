@@ -2,9 +2,6 @@
 
 O portal usa esta API para mandar lembretes num grupo do WhatsApp pelo Corvus.
 
-> ⚠️ **A porta 3000 ainda está fechada.** Por enquanto a API só responde de dentro
-> do servidor. Para o portal conseguir chamá-la, é preciso liberar a porta 3000 no
-> firewall do servidor (iptables) e na Security List da Oracle.
 
 ## Endereço
 
