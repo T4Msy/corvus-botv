@@ -17,6 +17,9 @@ const groupsConf = store('groups')
 // Convite de grupo do WhatsApp (antilink).
 const INVITE_RE = /chat\.whatsapp\.com\/\S+/i
 
+// Intervalo mínimo (s) entre respostas "Me chamou??" na mesma conversa.
+const CALL_COOLDOWN = 60
+
 function getDateKey () {
   return new Date().toISOString().slice(0, 10)
 }
@@ -51,7 +54,9 @@ function extractText (message) {
  */
 function createHandler ({ config, commands }) {
   const groupCache = new Map()
-  let cacheReady = false
+  // Socket ao qual os listeners do cache estão ligados. A cada reconexão
+  // nasce um socket novo e os listeners precisam ser religados nele.
+  let boundSock = null
 
   // Ids já processados — evita executar a mesma mensagem duas vezes
   // (o Baileys pode entregá-la em 'notify' e 'append').
@@ -64,10 +69,12 @@ function createHandler ({ config, commands }) {
     return false
   }
 
-  /** Inicializa cache de grupos na primeira mensagem recebida. */
+  /** Liga o cache de grupos ao socket atual (de novo após cada reconexão). */
   function initGroupCache (sock) {
-    if (cacheReady) return
-    cacheReady = true
+    if (boundSock === sock) return
+    boundSock = sock
+    // O que mudou enquanto estávamos desconectados não chegou por evento.
+    groupCache.clear()
     sock.ev.on('groups.upsert', gs => gs.forEach(g => groupCache.set(g.id, g)))
     sock.ev.on('groups.update', us => us.forEach(u => {
       const old = groupCache.get(u.id) || {}
@@ -138,8 +145,10 @@ function createHandler ({ config, commands }) {
           }, {})
         }
 
-        // XP por atividade (mensagens de terceiros, respeitando cooldown).
-        if (!fromMe) {
+        // XP só funciona em grupos que ativaram o leveling explicitamente.
+        // Isso evita anúncios em grupos onde o Corvus ainda não está ativo.
+        const levelingActive = isGroup && groupsConf.get(from, {}).active === true
+        if (!fromMe && levelingActive) {
           const xp = leveling.grant(sender)
           if (xp?.leveledUp) {
             await sock.sendMessage(from, {
@@ -150,6 +159,15 @@ function createHandler ({ config, commands }) {
         }
 
         const text = extractText(msg.message).trim()
+
+        // Responde quando alguém se refere ao bot, sem confundir o nome
+        // Corvus com a IA Masayoshi. Só em grupos ativos (ou DMs) e no
+        // máximo uma vez por minuto por conversa, para não virar spam.
+        const canChat = !isGroup || groupsConf.get(from, {}).active === true
+        if (!fromMe && canChat && !text.startsWith(config.prefix) && /\bbot\b/i.test(text) &&
+            ratelimit.check('mechamou', from, CALL_COOLDOWN) === 0) {
+          await sock.sendMessage(from, { text: 'Me chamou??' }, { quoted: msg })
+        }
 
         // Antilink: apaga convites de outros grupos e adverte (não-admins).
         if (isGroup && !fromMe && groupsConf.get(from, {}).antilink && INVITE_RE.test(text)) {

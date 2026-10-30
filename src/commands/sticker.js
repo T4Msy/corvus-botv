@@ -29,8 +29,8 @@ module.exports = {
     try {
       const buffer = await downloadMedia(msg)
       const webp = await createSticker(buffer, media.isVideo, {
-        pack: config.botName,
-        author: config.iaName
+        pack: 'figurinhas',
+        author: config.botName
       })
       await sock.sendMessage(from, { sticker: webp }, { quoted: msg })
     } catch (err) {

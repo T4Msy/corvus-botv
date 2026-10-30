@@ -15,6 +15,17 @@ function normalizeNumber (value) {
   return String(value || '').replace(/\D/g, '')
 }
 
+/**
+ * Variantes de um número brasileiro com e sem o 9º dígito: no WhatsApp
+ * muitos celulares aparecem como 55+DDD+8 dígitos, mesmo tendo o 9.
+ */
+function brVariants (num) {
+  if (!num.startsWith('55')) return [num]
+  if (num.length === 13 && num[4] === '9') return [num, num.slice(0, 4) + num.slice(5)]
+  if (num.length === 12) return [num, `${num.slice(0, 4)}9${num.slice(4)}`]
+  return [num]
+}
+
 function loadSettings () {
   let raw
   try {
@@ -40,6 +51,7 @@ function loadSettings () {
   )
     .map(normalizeNumber)
     .filter(Boolean)
+  const ownerIds = new Set(ownerNumbers.flatMap(brVariants))
 
   const config = {
     prefix,
@@ -53,8 +65,9 @@ function loadSettings () {
 
     /** Retorna true se o JID/número pertence a um dono configurado. */
     isOwner (jid) {
-      const num = normalizeNumber(jid)
-      return ownerNumbers.includes(num)
+      // Só a parte do usuário: "5531...:12@s.whatsapp.net" → "5531...".
+      const num = normalizeNumber(String(jid || '').split('@')[0].split(':')[0])
+      return ownerIds.has(num)
     }
   }
 

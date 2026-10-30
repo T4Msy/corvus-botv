@@ -17,7 +17,7 @@ module.exports = {
     }
     try {
       const png = await mix(args[0], args[1])
-      const sticker = await createSticker(png, false, { pack: config.botName, author: config.iaName })
+      const sticker = await createSticker(png, false, { pack: 'figurinhas', author: config.botName })
       await sock.sendMessage(from, { sticker }, { quoted: msg })
     } catch (err) {
       console.error('[emojimix] erro:', err)

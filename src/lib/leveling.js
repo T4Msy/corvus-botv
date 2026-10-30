@@ -47,10 +47,14 @@ function grant (userId, min = 5, max = 15) {
   return { xp: data.xp, level: after, leveledUp: after > before }
 }
 
-/** Top N usuários por XP: [{ id, xp, level }]. */
-function top (n = 10) {
+/**
+ * Top N usuários por XP: [{ id, xp, level }]. `filter(id)` restringe
+ * quem entra (ex.: só membros do grupo atual).
+ */
+function top (n = 10, filter = () => true) {
   const all = levels.all()
   return Object.entries(all)
+    .filter(([id]) => filter(id))
     .map(([id, d]) => ({ id, xp: d.xp || 0, level: levelFromXp(d.xp || 0) }))
     .sort((a, b) => b.xp - a.xp)
     .slice(0, n)

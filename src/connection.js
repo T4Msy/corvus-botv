@@ -8,6 +8,7 @@ const {
   default: makeWASocket,
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
+  fetchLatestWaWebVersion,
   DisconnectReason,
   Browsers
 } = require('@whiskeysockets/baileys')
@@ -17,6 +18,14 @@ const { remember, recall, markSent } = require('./lib/msgcache')
 const SESSION_DIR = path.resolve(__dirname, '..', 'data', 'session')
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'silent' })
+
+// Reconexão com espera crescente (2s, 4s, 8s… até 60s); zera ao conectar.
+const MAX_BACKOFF_MS = 60 * 1000
+let reconnectAttempts = 0
+
+function backoffDelay () {
+  return Math.min(MAX_BACKOFF_MS, 2000 * 2 ** reconnectAttempts++)
+}
 
 /**
  * Cria e mantém a conexão com o WhatsApp.
@@ -28,20 +37,36 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'silent' })
  */
 async function startConnection (config, handlers = {}) {
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR)
-  const { version } = await fetchLatestBaileysVersion()
+  const webVersion = await fetchLatestWaWebVersion({ timeout: 10000 })
+  if (!webVersion.isLatest) {
+    console.warn(`Não foi possível consultar a versão atual do WhatsApp Web: ${webVersion.error?.message || 'erro desconhecido'}`)
+  }
+  const { version } = webVersion.isLatest
+    ? webVersion
+    : await fetchLatestBaileysVersion({ timeout: 10000 })
+  console.log(`🌐 Versão do WhatsApp Web: ${version.join('.')}`)
 
   const sock = makeWASocket({
     version,
     logger,
     auth: state,
     browser: Browsers.appropriate('Corvus'),
-    printQRInTerminal: false,
     // Honra pedidos de reenvio: sem isso, quem não conseguir descriptografar
     // uma mensagem fica preso no "Aguardando mensagem".
     getMessage: async (key) => recall(key.id)
   })
 
-  sock.ev.on('creds.update', saveCreds)
+  // O primeiro pareamento encerra o socket com código 515. Aguarde a gravação
+  // das credenciais antes de abrir outro socket com o mesmo diretório de sessão.
+  let pendingCredsSave = Promise.resolve()
+  sock.ev.on('creds.update', () => {
+    pendingCredsSave = pendingCredsSave
+      .catch(() => {})
+      .then(saveCreds)
+    pendingCredsSave.catch((err) => {
+      console.error('Falha ao salvar a sessão do WhatsApp:', err)
+    })
+  })
 
   // Guarda tudo que sai da conta para poder reenviar sob demanda (getMessage).
   sock.ev.on('messages.upsert', ({ messages }) => {
@@ -63,7 +88,15 @@ async function startConnection (config, handlers = {}) {
   }
 
   sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update
+    const { connection, lastDisconnect, qr, isNewLogin } = update
+
+    if (connection === 'connecting') {
+      console.log('⏳ Conectando ao WhatsApp...')
+    }
+
+    if (isNewLogin) {
+      console.log('⏳ QR lido. Aguardando o WhatsApp concluir o pareamento...')
+    }
 
     if (qr) {
       console.log('\n📲 Escaneie o QR code abaixo com o WhatsApp do bot:\n')
@@ -71,12 +104,24 @@ async function startConnection (config, handlers = {}) {
     }
 
     if (connection === 'open') {
+      reconnectAttempts = 0
       console.log(`✅ ${config.botName} conectado ao WhatsApp.`)
     }
 
     if (connection === 'close') {
-      const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode
+      const error = lastDisconnect?.error
+      const statusCode = error instanceof Boom
+        ? error.output.statusCode
+        : error?.output?.statusCode
       const loggedOut = statusCode === DisconnectReason.loggedOut
+
+      if (statusCode === DisconnectReason.restartRequired) {
+        console.log('🔄 Pareamento aceito. Reiniciando a conexão com a sessão salva...')
+      } else {
+        console.error(
+          `⚠️  WhatsApp encerrou a conexão (código ${statusCode ?? 'desconhecido'}): ${error?.message || 'sem detalhes'}`
+        )
+      }
 
       if (loggedOut) {
         console.log(
@@ -85,8 +130,22 @@ async function startConnection (config, handlers = {}) {
         return
       }
 
-      console.log('⚠️  Conexão encerrada, reconectando...')
-      startConnection(config, handlers)
+      // Outra instância abriu a mesma sessão: reconectar só faria as duas
+      // se derrubarem em loop.
+      if (statusCode === DisconnectReason.connectionReplaced) {
+        console.log(
+          '🛑 Sessão aberta em outra instância do bot. Encerre a outra e reinicie esta.'
+        )
+        return
+      }
+
+      // Após o pareamento (515) reconecta na hora; nos demais casos, espera.
+      const delay = statusCode === DisconnectReason.restartRequired ? 0 : backoffDelay()
+      if (delay) {
+        console.log(`⚠️  Conexão encerrada, reconectando em ${delay / 1000}s...`)
+      }
+      pendingCredsSave
+        .then(() => reconnect(config, handlers, delay))
     }
   })
 
@@ -98,6 +157,16 @@ async function startConnection (config, handlers = {}) {
   }
 
   return sock
+}
+
+/** Abre um socket novo após `delay` ms; se falhar, tenta de novo com backoff. */
+function reconnect (config, handlers, delay) {
+  setTimeout(() => {
+    startConnection(config, handlers).catch((err) => {
+      console.error('Falha ao reconectar ao WhatsApp:', err.message)
+      reconnect(config, handlers, backoffDelay())
+    })
+  }, delay)
 }
 
 module.exports = { startConnection, SESSION_DIR }
