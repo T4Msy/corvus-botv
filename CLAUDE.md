@@ -28,8 +28,9 @@ node -e "require('./src/config'); require('./src/commands/_registry').loadComman
 
 ```
 src/
-  index.js        # bootstrap: banner → load commands → connect (handlers obj)
-  connection.js   # Baileys socket: QR, auto-reconnect, getMessage (retry), sendMessage wrapper
+  index.js        # bootstrap: banner → load commands → connect (handlers obj) → startApi
+  api.js          # HTTP API for the portal (POST /enviar to a group); on only with API_TOKEN
+  connection.js   # Baileys socket: QR/pairing code, auto-reconnect, getMessage, sendMessage wrapper, getSocket()
   config.js       # loads config/settings.json + .env, exposes config.isOwner()
   handler.js      # message → dedupe/fromMe → counters/XP → antilink → prefix → permissions → run
   commands/       # one file per command (or an ARRAY of commands), auto-loaded by _registry.js

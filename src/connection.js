@@ -23,6 +23,15 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'silent' })
 const MAX_BACKOFF_MS = 60 * 1000
 let reconnectAttempts = 0
 
+// Socket ativo (troca a cada reconexão) — usado pela API HTTP (src/api.js).
+let currentSock = null
+let isOpen = false
+
+/** Retorna o socket conectado, ou null se o WhatsApp estiver fora. */
+function getSocket () {
+  return isOpen ? currentSock : null
+}
+
 function backoffDelay () {
   return Math.min(MAX_BACKOFF_MS, 2000 * 2 ** reconnectAttempts++)
 }
@@ -126,10 +135,13 @@ async function startConnection (config, handlers = {}) {
 
     if (connection === 'open') {
       reconnectAttempts = 0
+      currentSock = sock
+      isOpen = true
       console.log(`✅ ${config.botName} conectado ao WhatsApp.`)
     }
 
     if (connection === 'close') {
+      if (currentSock === sock) isOpen = false
       const error = lastDisconnect?.error
       const statusCode = error instanceof Boom
         ? error.output.statusCode
@@ -190,4 +202,4 @@ function reconnect (config, handlers, delay) {
   }, delay)
 }
 
-module.exports = { startConnection, SESSION_DIR }
+module.exports = { startConnection, getSocket, SESSION_DIR }
