@@ -46,11 +46,18 @@ async function startConnection (config, handlers = {}) {
     : await fetchLatestBaileysVersion({ timeout: 10000 })
   console.log(`🌐 Versão do WhatsApp Web: ${version.join('.')}`)
 
+  // Pareamento por código (PAIRING_NUMBER no .env) em vez de QR — útil em
+  // servidor, onde não dá para escanear o terminal. Só vale sem sessão.
+  const pairingNumber = String(process.env.PAIRING_NUMBER || '').replace(/\D/g, '')
+  const usePairingCode = Boolean(pairingNumber) && !state.creds.me
+  let pairingRequested = false
+
   const sock = makeWASocket({
     version,
     logger,
     auth: state,
-    browser: Browsers.appropriate('Corvus'),
+    // O WhatsApp só aceita código de pareamento de um navegador conhecido.
+    browser: usePairingCode ? Browsers.ubuntu('Chrome') : Browsers.appropriate('Corvus'),
     // Honra pedidos de reenvio: sem isso, quem não conseguir descriptografar
     // uma mensagem fica preso no "Aguardando mensagem".
     getMessage: async (key) => recall(key.id)
@@ -98,7 +105,21 @@ async function startConnection (config, handlers = {}) {
       console.log('⏳ QR lido. Aguardando o WhatsApp concluir o pareamento...')
     }
 
-    if (qr) {
+    if (qr && usePairingCode) {
+      if (!pairingRequested) {
+        pairingRequested = true
+        sock.requestPairingCode(pairingNumber).then((code) => {
+          const pretty = code.match(/.{1,4}/g).join('-')
+          console.log(
+            `\n🔑 Código de pareamento para +${pairingNumber}: ${pretty}\n` +
+            '   No celular do bot: WhatsApp → Aparelhos conectados → Conectar aparelho →\n' +
+            '   "Conectar com número de telefone" e digite o código.\n'
+          )
+        }).catch((err) => {
+          console.error('Falha ao pedir o código de pareamento:', err.message)
+        })
+      }
+    } else if (qr) {
       console.log('\n📲 Escaneie o QR code abaixo com o WhatsApp do bot:\n')
       qrcode.generate(qr, { small: true })
     }
