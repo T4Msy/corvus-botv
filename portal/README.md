@@ -32,7 +32,8 @@ abrir o código-fonte do site veria o token.
 |--------|-----------|----------------------------------------------|
 | GET    | `/status` | `{ "conectado": true }` se o bot está online |
 | GET    | `/grupos` | Lista os grupos do bot (id, nome, membros)   |
-| POST   | `/enviar` | Envia a mensagem num grupo                   |
+| GET    | `/membros`| Números que podem receber no privado         |
+| POST   | `/enviar` | Envia a mensagem num grupo ou no privado     |
 
 ### POST /enviar
 
@@ -52,6 +53,21 @@ Corpo em JSON:
 
 Resposta de sucesso: `{ "ok": true, "id": "..." }`
 
+### Envio no privado
+
+Troque `grupo` por `numero`, com DDI e DDD. Tanto faz mandar com ou sem o 9:
+
+```json
+{ "numero": "5534999999999", "mensagem": "Sua atividade vence amanhã!" }
+```
+
+Regras:
+- **Só membros da Masayoshi 🍷** recebem. Isso é definido por `API_DM_GROUP` e
+  conferido na hora do envio: quem sai do grupo deixa de receber, e quem entra
+  passa a receber.
+- **Uma mensagem a cada 5 segundos.** Se tentar antes disso, a API responde 429.
+  Mande uma mensagem por vez, não uma lista inteira.
+
 ### Erros
 
 Em caso de erro, a resposta é `{ "erro": "..." }`, com um destes códigos:
@@ -60,8 +76,9 @@ Em caso de erro, a resposta é `{ "erro": "..." }`, com um destes códigos:
 |--------|--------------------------------------------------|
 | 400    | Falta o grupo ou a mensagem, ou o JSON é inválido |
 | 401    | Token errado                                     |
+| 403    | Número fora da Masayoshi (envio no privado)      |
 | 404    | O bot não está nesse grupo                       |
-| 429    | Mais de 20 envios no mesmo minuto                |
+| 429    | Mais de 20 envios no mesmo minuto, ou menos de 5 s entre mensagens no privado |
 | 503    | O bot está desconectado do WhatsApp              |
 
 ## Grupos atuais
