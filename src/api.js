@@ -7,15 +7,21 @@
  *
  *   GET  /status   → { conectado }
  *   GET  /grupos   → grupos em que o bot está (para descobrir o id)
+ *   GET  /membros  → números que podem receber no privado
  *   POST /enviar   → { grupo?, mensagem }  (grupo padrão: API_DEFAULT_GROUP)
+ *                    { numero, mensagem }  (privado)
  *
- * Só envia para GRUPOS: disparar no privado de várias pessoas é o que mais
- * faz o WhatsApp banir números de bots não oficiais.
+ * Privado só para quem é membro do grupo API_DM_GROUP (conferido na hora,
+ * então quem entra/sai do grupo entra/sai da lista) e um envio por vez:
+ * disparar no privado de muita gente é o que mais faz o WhatsApp banir
+ * números de bots não oficiais.
  */
 
 const http = require('http')
 const crypto = require('crypto')
+const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 const { getSocket } = require('./connection')
+const config = require('./config')
 
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_MESSAGE_CHARS = 4000
@@ -23,6 +29,29 @@ const MAX_MESSAGE_CHARS = 4000
 const RATE_WINDOW_MS = 60 * 1000
 const RATE_MAX = 20
 let sentTimes = []
+// Intervalo mínimo entre mensagens no privado.
+const DM_GAP_MS = 5 * 1000
+let lastDmAt = 0
+
+/**
+ * Membros do grupo de privado que têm número de telefone visível:
+ * Map(variante do número → JID de telefone do membro).
+ */
+async function dmMembers (sock) {
+  const groupId = process.env.API_DM_GROUP
+  if (!groupId) return null
+  const meta = await sock.groupMetadata(groupId)
+  const bot = new Set([sock.user?.id, sock.user?.lid].filter(Boolean).map(jidNormalizedUser))
+  const out = new Map()
+  for (const p of meta.participants || []) {
+    const ids = [p.id, p.jid, p.phoneNumber].filter(Boolean).map(jidNormalizedUser)
+    if (ids.some(id => bot.has(id))) continue
+    const phoneJid = ids.find(id => id.endsWith('@s.whatsapp.net'))
+    if (!phoneJid) continue
+    for (const v of config.phoneVariants(phoneJid.split('@')[0])) out.set(v, phoneJid)
+  }
+  return out
+}
 
 function tokenMatches (header, token) {
   const given = Buffer.from(String(header || '').replace(/^Bearer\s+/i, ''))
@@ -79,17 +108,39 @@ async function route (req, res, send) {
     })
   }
 
+  if (req.method === 'GET' && url.pathname === '/membros') {
+    const members = await dmMembers(sock)
+    if (!members) return send(400, { erro: 'Envio no privado desligado (API_DM_GROUP não definido).' })
+    const numeros = [...new Set(members.values())].map(jid => jid.split('@')[0])
+    return send(200, { numeros })
+  }
+
   if (req.method === 'POST' && url.pathname === '/enviar') {
     const body = await readJson(req)
-    const grupo = String(body.grupo || process.env.API_DEFAULT_GROUP || '').trim()
     const mensagem = String(body.mensagem || '').trim()
-
-    if (!grupo.endsWith('@g.us')) {
-      return send(400, { erro: 'Informe "grupo" com o id do grupo (termina em @g.us). Veja GET /grupos.' })
-    }
     if (!mensagem) return send(400, { erro: 'Informe "mensagem".' })
     if (mensagem.length > MAX_MESSAGE_CHARS) {
       return send(400, { erro: `Mensagem muito longa (máx. ${MAX_MESSAGE_CHARS} caracteres).` })
+    }
+
+    if (body.numero) {
+      const members = await dmMembers(sock)
+      if (!members) return send(400, { erro: 'Envio no privado desligado (API_DM_GROUP não definido).' })
+      const jid = config.phoneVariants(body.numero).map(v => members.get(v)).find(Boolean)
+      if (!jid) return send(403, { erro: 'Esse número não está no grupo liberado para o privado.' })
+      const wait = DM_GAP_MS - (Date.now() - lastDmAt)
+      if (wait > 0) {
+        return send(429, { erro: `Aguarde ${Math.ceil(wait / 1000)}s entre mensagens no privado.` })
+      }
+      if (rateLimited()) return send(429, { erro: 'Muitos envios seguidos. Aguarde um minuto.' })
+      lastDmAt = Date.now()
+      const sent = await sock.sendMessage(jid, { text: mensagem })
+      return send(200, { ok: true, id: sent?.key?.id })
+    }
+
+    const grupo = String(body.grupo || process.env.API_DEFAULT_GROUP || '').trim()
+    if (!grupo.endsWith('@g.us')) {
+      return send(400, { erro: 'Informe "grupo" (id terminado em @g.us, veja GET /grupos) ou "numero".' })
     }
     if (rateLimited()) return send(429, { erro: 'Muitos envios seguidos. Aguarde um minuto.' })
 

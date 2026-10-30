@@ -63,6 +63,9 @@ function loadSettings () {
     },
     flags: settings.flags || {},
 
+    /** Variantes BR de um número (com e sem o 9º dígito). */
+    phoneVariants: (value) => brVariants(normalizeNumber(value)),
+
     /** Retorna true se o JID/número pertence a um dono configurado. */
     isOwner (jid) {
       // Só a parte do usuário: "5531...:12@s.whatsapp.net" → "5531...".
