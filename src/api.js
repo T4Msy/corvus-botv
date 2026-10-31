@@ -35,7 +35,12 @@ let lastDmAt = 0
 
 /**
  * Membros do grupo de privado que têm número de telefone visível:
- * Map(variante do número → JID de telefone do membro).
+ * Map(variante do número → { phone, jid }).
+ *
+ * `jid` é o @lid do membro quando o grupo informa: o grupo já conversa com
+ * ele pelo LID, e mandar o privado pelo número de telefone cria uma segunda
+ * sessão de criptografia para o mesmo aparelho — as duas se atropelam e a
+ * pessoa recebe "Aguardando mensagem".
  */
 async function dmMembers (sock) {
   const groupId = process.env.API_DM_GROUP
@@ -48,7 +53,9 @@ async function dmMembers (sock) {
     if (ids.some(id => bot.has(id))) continue
     const phoneJid = ids.find(id => id.endsWith('@s.whatsapp.net'))
     if (!phoneJid) continue
-    for (const v of config.phoneVariants(phoneJid.split('@')[0])) out.set(v, phoneJid)
+    const phone = phoneJid.split('@')[0]
+    const member = { phone, jid: ids.find(id => id.endsWith('@lid')) || phoneJid }
+    for (const v of config.phoneVariants(phone)) out.set(v, member)
   }
   return out
 }
@@ -111,7 +118,7 @@ async function route (req, res, send) {
   if (req.method === 'GET' && url.pathname === '/membros') {
     const members = await dmMembers(sock)
     if (!members) return send(400, { erro: 'Envio no privado desligado (API_DM_GROUP não definido).' })
-    const numeros = [...new Set(members.values())].map(jid => jid.split('@')[0])
+    const numeros = [...new Set([...members.values()].map(m => m.phone))]
     return send(200, { numeros })
   }
 
@@ -126,7 +133,7 @@ async function route (req, res, send) {
     if (body.numero) {
       const members = await dmMembers(sock)
       if (!members) return send(400, { erro: 'Envio no privado desligado (API_DM_GROUP não definido).' })
-      const jid = config.phoneVariants(body.numero).map(v => members.get(v)).find(Boolean)
+      const jid = config.phoneVariants(body.numero).map(v => members.get(v)?.jid).find(Boolean)
       if (!jid) return send(403, { erro: 'Esse número não está no grupo liberado para o privado.' })
       const wait = DM_GAP_MS - (Date.now() - lastDmAt)
       if (wait > 0) {
