@@ -10,23 +10,21 @@
  *   PATCH /grupos/:id           → { ativo?, boasVindas?, antilink? } (= /corvus, /welcome, /antilink)
  *   GET   /grupos/:id/ranking   → top 10 de XP e de mensagens do grupo
  *   GET   /membros              → números que podem receber no privado
- *   POST  /enviar               → { grupo?, mensagem }  (grupo padrão: API_DEFAULT_GROUP)
+ *   POST  /enviar               → { grupo?, mensagem, mencionar?: [numeros], mencionarTodos? }
  *                                 { numero, mensagem }  (privado)
  *
- * Privado só para quem é membro do grupo API_DM_GROUP (conferido na hora,
- * então quem entra/sai do grupo entra/sai da lista) e um envio por vez:
- * disparar no privado de muita gente é o que mais faz o WhatsApp banir
- * números de bots não oficiais.
+ * As regras do privado (só membros de API_DM_GROUP, pelo @lid, em fila)
+ * ficam em lib/outbox.js, compartilhado com os avisos automáticos.
  */
 
 const http = require('http')
 const crypto = require('crypto')
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 const { getSocket, getHealth } = require('./connection')
-const config = require('./config')
 const { store } = require('./lib/store')
 const { getAdmins, botJids } = require('./lib/group')
 const leveling = require('./lib/leveling')
+const { dmMembers, sendDm, sendGroup } = require('./lib/outbox')
 
 const groupsConf = store('groups')
 const counters = store('counters')
@@ -56,36 +54,6 @@ const MAX_MESSAGE_CHARS = 4000
 const RATE_WINDOW_MS = 60 * 1000
 const RATE_MAX = 20
 let sentTimes = []
-// Intervalo mínimo entre mensagens no privado.
-const DM_GAP_MS = 5 * 1000
-let lastDmAt = 0
-
-/**
- * Membros do grupo de privado que têm número de telefone visível:
- * Map(variante do número → { phone, jid }).
- *
- * `jid` é o @lid do membro quando o grupo informa: o grupo já conversa com
- * ele pelo LID, e mandar o privado pelo número de telefone cria uma segunda
- * sessão de criptografia para o mesmo aparelho — as duas se atropelam e a
- * pessoa recebe "Aguardando mensagem".
- */
-async function dmMembers (sock) {
-  const groupId = process.env.API_DM_GROUP
-  if (!groupId) return null
-  const meta = await sock.groupMetadata(groupId)
-  const bot = new Set([sock.user?.id, sock.user?.lid].filter(Boolean).map(jidNormalizedUser))
-  const out = new Map()
-  for (const p of meta.participants || []) {
-    const ids = [p.id, p.jid, p.phoneNumber].filter(Boolean).map(jidNormalizedUser)
-    if (ids.some(id => bot.has(id))) continue
-    const phoneJid = ids.find(id => id.endsWith('@s.whatsapp.net'))
-    if (!phoneJid) continue
-    const phone = phoneJid.split('@')[0]
-    const member = { phone, jid: ids.find(id => id.endsWith('@lid')) || phoneJid }
-    for (const v of config.phoneVariants(phone)) out.set(v, member)
-  }
-  return out
-}
 
 function tokenMatches (header, token) {
   const given = Buffer.from(String(header || '').replace(/^Bearer\s+/i, ''))
@@ -212,17 +180,8 @@ async function route (req, res, send) {
     }
 
     if (body.numero) {
-      const members = await dmMembers(sock)
-      if (!members) return send(400, { erro: 'Envio no privado desligado (API_DM_GROUP não definido).' })
-      const jid = config.phoneVariants(body.numero).map(v => members.get(v)?.jid).find(Boolean)
-      if (!jid) return send(403, { erro: 'Esse número não está no grupo liberado para o privado.' })
-      const wait = DM_GAP_MS - (Date.now() - lastDmAt)
-      if (wait > 0) {
-        return send(429, { erro: `Aguarde ${Math.ceil(wait / 1000)}s entre mensagens no privado.` })
-      }
       if (rateLimited()) return send(429, { erro: 'Muitos envios seguidos. Aguarde um minuto.' })
-      lastDmAt = Date.now()
-      const sent = await sock.sendMessage(jid, { text: mensagem })
+      const sent = await sendDm(sock, String(body.numero), mensagem)
       return send(200, { ok: true, id: sent?.key?.id })
     }
 
@@ -232,11 +191,10 @@ async function route (req, res, send) {
     }
     if (rateLimited()) return send(429, { erro: 'Muitos envios seguidos. Aguarde um minuto.' })
 
-    // Falha aqui se o bot não estiver no grupo.
-    await sock.groupMetadata(grupo).catch(() => {
-      throw Object.assign(new Error('O bot não está nesse grupo.'), { status: 404 })
+    const sent = await sendGroup(sock, grupo, mensagem, {
+      mentionPhones: Array.isArray(body.mencionar) ? body.mencionar.map(String) : [],
+      mentionAll: body.mencionarTodos === true
     })
-    const sent = await sock.sendMessage(grupo, { text: mensagem })
     return send(200, { ok: true, id: sent?.key?.id })
   }
 

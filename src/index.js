@@ -3,11 +3,12 @@
 const fs = require('fs')
 const config = require('./config')
 const { printBanner } = require('./ui/banner')
-const { startConnection, SESSION_DIR } = require('./connection')
+const { startConnection, getSocket, SESSION_DIR } = require('./connection')
 const { loadCommands } = require('./commands/_registry')
 const { createHandler } = require('./handler')
 const { createGroupParticipantsHandler } = require('./events/groupParticipants')
 const { startApi } = require('./api')
+const { startAutomations } = require('./automations')
 
 async function main () {
   // `npm run qr` / --new-session: força novo pareamento apagando a sessão.
@@ -29,6 +30,7 @@ async function main () {
 
   await startConnection(config, handlers)
   startApi()
+  startAutomations(getSocket)
 }
 
 main().catch((err) => {

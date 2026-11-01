@@ -28,7 +28,9 @@ node -e "require('./src/config'); require('./src/commands/_registry').loadComman
 
 ```
 src/
-  index.js        # bootstrap: banner → load commands → connect (handlers obj) → startApi
+  index.js        # bootstrap: banner → load commands → connect (handlers obj) → startApi → startAutomations
+  automations.js  # portal auto-notices (events, activities, meetings, announcements), 1-min tick;
+                  # config/templates in Supabase bot_automations; needs SUPABASE_URL + SUPABASE_SERVICE_KEY
   api.js          # HTTP API for the portal: send (groups/DM by @lid), group toggles, ranking,
                   # health; on only with API_TOKEN (token: portal/token.txt, gitignored)
   connection.js   # Baileys socket: QR/pairing code, auto-reconnect, getMessage, sendMessage wrapper, getSocket()
@@ -48,6 +50,8 @@ src/
     groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
+    outbox.js     # system sends: DM by @lid in a queue (API_DM_GROUP members only), group mentions
+    supabase.js   # minimal Supabase REST client (service key) for automations.js
     leveling.js   # XP/level system (uses store('levels'))
     ratelimit.js  # per-(command,user) cooldown for the `cooldown` flag
     group.js      # getAdmins() (all @lid/phone variants), botJid(), botJids(), getTargets()
