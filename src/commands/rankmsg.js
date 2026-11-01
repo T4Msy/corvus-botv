@@ -1,6 +1,7 @@
 'use strict'
 
 const { store } = require('../lib/store')
+const periods = require('../lib/periods')
 const { emoji, header, loading } = require('../ui/theme')
 
 const counters = store('counters')
@@ -8,13 +9,6 @@ const timecounters = store('timecounters')
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-function getDateKey () { return new Date().toISOString().slice(0, 10) }
-function getWeekKey () {
-  const d = new Date()
-  const jan1 = new Date(d.getFullYear(), 0, 1)
-  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7)
-  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
-}
 
 function purgeOldData (tc) {
   if (!tc) return {}
@@ -53,8 +47,8 @@ module.exports = {
       return
     }
 
-    const dayKey = getDateKey()
-    const weekKey = getWeekKey()
+    const dayKey = periods.dayKey()
+    const weekKey = periods.weekKey()
     const dayTotal = Object.values(tc.daily?.[dayKey] || {}).reduce((a, b) => a + b, 0)
     const weekTotal = Object.values(tc.weekly?.[weekKey] || {}).reduce((a, b) => a + b, 0)
 

@@ -9,6 +9,7 @@ const { emoji, error, info, loading } = require('./ui/theme')
 const { wasSentByBot } = require('./lib/msgcache')
 const { commandsOfCategory, categoryToText, commandCard } = require('./lib/menuview')
 const { applyWarn } = require('./lib/warns')
+const periods = require('./lib/periods')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -20,16 +21,6 @@ const INVITE_RE = /chat\.whatsapp\.com\/\S+/i
 // Intervalo mínimo (s) entre respostas "Me chamou??" na mesma conversa.
 const CALL_COOLDOWN = 60
 
-function getDateKey () {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function getWeekKey () {
-  const d = new Date()
-  const jan1 = new Date(d.getFullYear(), 0, 1)
-  const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7)
-  return `${d.getFullYear()}-W${String(week).padStart(2, '0')}`
-}
 
 /**
  * Extrai o texto de uma mensagem Baileys, cobrindo os tipos comuns e
@@ -128,8 +119,8 @@ function createHandler ({ config, commands }) {
         // Contador de mensagens: total + diário + semanal (não conta a
         // própria conta do bot, para não poluir ranking e nível).
         if (isGroup && !fromMe) {
-          const dayKey = getDateKey()
-          const weekKey = getWeekKey()
+          const dayKey = periods.dayKey()
+          const weekKey = periods.weekKey()
           counters.update(from, (c) => {
             c[sender] = (c[sender] || 0) + 1
             return c
