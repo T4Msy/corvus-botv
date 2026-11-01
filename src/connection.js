@@ -32,6 +32,13 @@ function getSocket () {
   return isOpen ? currentSock : null
 }
 
+// Saúde da conexão, para o painel do portal (GET /status).
+const health = { connectedAt: null, reconnects: 0, lastClose: null }
+
+function getHealth () {
+  return { ...health, connected: isOpen }
+}
+
 function backoffDelay () {
   return Math.min(MAX_BACKOFF_MS, 2000 * 2 ** reconnectAttempts++)
 }
@@ -137,6 +144,8 @@ async function startConnection (config, handlers = {}) {
       reconnectAttempts = 0
       currentSock = sock
       isOpen = true
+      if (health.connectedAt) health.reconnects++
+      health.connectedAt = new Date().toISOString()
       console.log(`✅ ${config.botName} conectado ao WhatsApp.`)
     }
 
@@ -147,6 +156,9 @@ async function startConnection (config, handlers = {}) {
         ? error.output.statusCode
         : error?.output?.statusCode
       const loggedOut = statusCode === DisconnectReason.loggedOut
+      if (statusCode !== DisconnectReason.restartRequired) {
+        health.lastClose = { code: statusCode ?? null, reason: error?.message || null, at: new Date().toISOString() }
+      }
 
       if (statusCode === DisconnectReason.restartRequired) {
         console.log('🔄 Pareamento aceito. Reiniciando a conexão com a sessão salva...')
@@ -202,4 +214,4 @@ function reconnect (config, handlers, delay) {
   }, delay)
 }
 
-module.exports = { startConnection, getSocket, SESSION_DIR }
+module.exports = { startConnection, getSocket, getHealth, SESSION_DIR }

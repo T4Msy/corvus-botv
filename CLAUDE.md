@@ -29,7 +29,8 @@ node -e "require('./src/config'); require('./src/commands/_registry').loadComman
 ```
 src/
   index.js        # bootstrap: banner → load commands → connect (handlers obj) → startApi
-  api.js          # HTTP API for the portal (POST /enviar to a group); on only with API_TOKEN
+  api.js          # HTTP API for the portal: send (groups/DM by @lid), group toggles, ranking,
+                  # health; on only with API_TOKEN (token: portal/token.txt, gitignored)
   connection.js   # Baileys socket: QR/pairing code, auto-reconnect, getMessage, sendMessage wrapper, getSocket()
   config.js       # loads config/settings.json + .env, exposes config.isOwner()
   handler.js      # message → dedupe/fromMe → counters/XP → antilink → prefix → permissions → run

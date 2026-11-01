@@ -5,11 +5,13 @@
  * Só liga se API_TOKEN estiver no .env. Todas as rotas exigem o cabeçalho
  *   Authorization: Bearer <API_TOKEN>
  *
- *   GET  /status   → { conectado }
- *   GET  /grupos   → grupos em que o bot está (para descobrir o id)
- *   GET  /membros  → números que podem receber no privado
- *   POST /enviar   → { grupo?, mensagem }  (grupo padrão: API_DEFAULT_GROUP)
- *                    { numero, mensagem }  (privado)
+ *   GET   /status               → saúde: conectado, desde quando, reconexões, falhas
+ *   GET   /grupos               → grupos do bot com ativo/boas-vindas/antilink/admin
+ *   PATCH /grupos/:id           → { ativo?, boasVindas?, antilink? } (= /corvus, /welcome, /antilink)
+ *   GET   /grupos/:id/ranking   → top 10 de XP e de mensagens do grupo
+ *   GET   /membros              → números que podem receber no privado
+ *   POST  /enviar               → { grupo?, mensagem }  (grupo padrão: API_DEFAULT_GROUP)
+ *                                 { numero, mensagem }  (privado)
  *
  * Privado só para quem é membro do grupo API_DM_GROUP (conferido na hora,
  * então quem entra/sai do grupo entra/sai da lista) e um envio por vez:
@@ -20,8 +22,33 @@
 const http = require('http')
 const crypto = require('crypto')
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
-const { getSocket } = require('./connection')
+const { getSocket, getHealth } = require('./connection')
 const config = require('./config')
+const { store } = require('./lib/store')
+const { getAdmins, botJids } = require('./lib/group')
+const leveling = require('./lib/leveling')
+
+const groupsConf = store('groups')
+const counters = store('counters')
+const STARTED_AT = new Date().toISOString()
+// Últimas falhas de envio, para o painel de saúde do portal.
+const recentFailures = []
+
+function recordFailure (target, message) {
+  recentFailures.unshift({ target, erro: message, quando: new Date().toISOString() })
+  recentFailures.length = Math.min(recentFailures.length, 10)
+}
+
+/** Mapa id do participante (lid/jid) → número de telefone, quando o grupo informa. */
+function phoneById (meta) {
+  const out = new Map()
+  for (const p of meta.participants || []) {
+    const ids = [p.id, p.jid, p.phoneNumber].filter(Boolean).map(jidNormalizedUser)
+    const phone = ids.find(id => id.endsWith('@s.whatsapp.net'))?.split('@')[0] || null
+    for (const id of ids) out.set(id, phone)
+  }
+  return out
+}
 
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_MESSAGE_CHARS = 4000
@@ -102,7 +129,15 @@ async function route (req, res, send) {
   const url = new URL(req.url, 'http://localhost')
 
   if (req.method === 'GET' && url.pathname === '/status') {
-    return send(200, { conectado: Boolean(getSocket()) })
+    const h = getHealth()
+    return send(200, {
+      conectado: h.connected,
+      conectadoDesde: h.connectedAt,
+      processoDesde: STARTED_AT,
+      reconexoes: h.reconnects,
+      ultimaQueda: h.lastClose,
+      falhasRecentes: recentFailures
+    })
   }
 
   const sock = getSocket()
@@ -110,9 +145,55 @@ async function route (req, res, send) {
 
   if (req.method === 'GET' && url.pathname === '/grupos') {
     const groups = Object.values(await sock.groupFetchAllParticipating())
+    const mine = new Set(botJids(sock))
     return send(200, {
-      grupos: groups.map(g => ({ id: g.id, nome: g.subject, participantes: g.participants.length }))
+      grupos: groups.map(g => {
+        const conf = groupsConf.get(g.id, {})
+        return {
+          id: g.id,
+          nome: g.subject,
+          participantes: g.participants.length,
+          ativo: conf.active === true,
+          boasVindas: conf.welcome === true,
+          antilink: conf.antilink === true,
+          botAdmin: getAdmins(g).some(id => mine.has(id))
+        }
+      })
     })
+  }
+
+  const groupRoute = url.pathname.match(/^\/grupos\/([^/]+@g\.us)(\/ranking)?$/)
+  if (groupRoute) {
+    const groupId = decodeURIComponent(groupRoute[1])
+    const meta = await sock.groupMetadata(groupId).catch(() => {
+      throw Object.assign(new Error('O bot não está nesse grupo.'), { status: 404 })
+    })
+
+    if (req.method === 'PATCH' && !groupRoute[2]) {
+      const body = await readJson(req)
+      const FIELDS = { ativo: 'active', boasVindas: 'welcome', antilink: 'antilink' }
+      const patch = {}
+      for (const [field, key] of Object.entries(FIELDS)) {
+        if (typeof body[field] === 'boolean') patch[key] = body[field]
+      }
+      if (!Object.keys(patch).length) return send(400, { erro: 'Nada para alterar.' })
+      await groupsConf.update(groupId, (current) => ({ ...current, ...patch }), {})
+      const conf = groupsConf.get(groupId, {})
+      return send(200, { ok: true, ativo: conf.active === true, boasVindas: conf.welcome === true, antilink: conf.antilink === true })
+    }
+
+    if (req.method === 'GET' && groupRoute[2]) {
+      const phones = phoneById(meta)
+      const inGroup = (id) => phones.has(jidNormalizedUser(id))
+      const xp = leveling.top(10, inGroup).map(u => ({
+        id: u.id, telefone: phones.get(jidNormalizedUser(u.id)) || null, nivel: u.level, xp: u.xp
+      }))
+      const mensagens = Object.entries(counters.get(groupId, {}))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([id, total]) => ({ id, telefone: phones.get(jidNormalizedUser(id)) || null, total }))
+      return send(200, { xp, mensagens })
+    }
   }
 
   if (req.method === 'GET' && url.pathname === '/membros') {
@@ -181,10 +262,11 @@ function startApi () {
       if (corsOrigin) {
         headers['Access-Control-Allow-Origin'] = corsOrigin
         headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type'
-        headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        headers['Access-Control-Allow-Methods'] = 'GET, POST, PATCH, OPTIONS'
       }
       res.writeHead(status, headers)
       res.end(data === undefined ? '' : JSON.stringify(data))
+      if (status >= 400 && req.url.startsWith('/enviar')) recordFailure('enviar', data?.erro)
     }
 
     if (req.method === 'OPTIONS') return send(204)
