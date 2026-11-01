@@ -73,7 +73,7 @@ async function logMessage (row) {
 
 /**
  * Entrega um aviso conforme a configuração (`auto`):
- *  - grupo padrão: {pessoas}/{pendentes} viram menções de `people`
+ *  - grupo padrão: marca todo mundo; {pessoas}/{pendentes} viram menções de `people`
  *  - privado: cada um de `people` com WhatsApp; {pessoas}/{pendentes} viram texto pessoal
  */
 async function deliver (ctx, auto, { vars, people = [], groupText = null }) {
@@ -87,7 +87,8 @@ async function deliver (ctx, auto, { vars, people = [], groupText = null }) {
     const finalText = unnamed.length ? text.replace('{marcados}', `{marcados} ${unnamed.join(', ')}`) : text
     let error = null
     try {
-      await sendGroup(sock, settings.default_group, finalText, { mentionPhones })
+      // Todo aviso no grupo notifica todo mundo; {marcados}/{todos} seguem visíveis.
+      await sendGroup(sock, settings.default_group, finalText, { mentionPhones, notifyAll: true })
     } catch (err) {
       error = err.message
       console.error(`[avisos] ${auto.key} no grupo:`, err.message)

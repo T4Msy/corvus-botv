@@ -93,13 +93,14 @@ function groupMentions (sock, meta, { phones = [], all = false } = {}) {
 
 /**
  * Manda no grupo. Em `text`, {todos} vira a marcação de todos e
- * {marcados} a marcação de `mentionPhones`.
+ * {marcados} a marcação de `mentionPhones`. `notifyAll` marca todos sem
+ * escrever os @ no texto (todo mundo é notificado).
  */
-async function sendGroup (sock, groupId, text, { mentionPhones = [], mentionAll = false } = {}) {
+async function sendGroup (sock, groupId, text, { mentionPhones = [], mentionAll = false, notifyAll = false } = {}) {
   const meta = await sock.groupMetadata(groupId).catch(() => {
     throw Object.assign(new Error('O bot não está nesse grupo.'), { status: 404 })
   })
-  const all = mentionAll || text.includes('{todos}')
+  const all = mentionAll || notifyAll || text.includes('{todos}')
     ? groupMentions(sock, meta, { all: true })
     : { jids: [], tags: '' }
   const some = mentionPhones.length ? groupMentions(sock, meta, { phones: mentionPhones }) : { jids: [], tags: '' }
