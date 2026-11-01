@@ -22,6 +22,10 @@ function isInstagram (s) {
   return /instagram\.com/i.test(s)
 }
 
+function isTikTok (s) {
+  return /tiktok\.com/i.test(s)
+}
+
 /** Obtém metadados (título, duração, url) de um link ou busca no YouTube. */
 async function getInfo (query) {
   const input = isUrl(query) ? query : `ytsearch1:${query}`
@@ -57,9 +61,13 @@ async function downloadAudio (query, { maxDuration = 2400 } = {}) {
   return { file, title }
 }
 
-/** Baixa o vídeo (mp4, até 480p/64MB). Usa cobalt.tools como fallback para Instagram. */
+/**
+ * Baixa o vídeo (mp4, até 480p/64MB). Fallbacks quando o yt-dlp é
+ * bloqueado: tikwm.com para TikTok e cobalt.tools para Instagram.
+ */
 async function downloadVideo (query, { maxDuration = 900 } = {}) {
   const ig = isUrl(query) && isInstagram(query)
+  const tt = isUrl(query) && isTikTok(query)
 
   try {
     const { url, title, duration } = await getInfo(query)
@@ -75,6 +83,10 @@ async function downloadVideo (query, { maxDuration = 900 } = {}) {
     })
     return { file, title }
   } catch (err) {
+    if (tt) {
+      const { downloadFromTikwm } = require('./tikwm')
+      return downloadFromTikwm(query)
+    }
     if (ig) {
       const { downloadFromCobalt } = require('./cobalt')
       const file = await downloadFromCobalt(query)
