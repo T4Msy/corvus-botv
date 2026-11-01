@@ -162,9 +162,9 @@ async function route (req, res, send) {
     })
   }
 
-  const groupRoute = url.pathname.match(/^\/grupos\/([^/]+@g\.us)(\/ranking)?$/)
+  const groupRoute = decodeURIComponent(url.pathname).match(/^\/grupos\/([^/]+@g\.us)(\/ranking)?$/)
   if (groupRoute) {
-    const groupId = decodeURIComponent(groupRoute[1])
+    const groupId = groupRoute[1]
     const meta = await sock.groupMetadata(groupId).catch(() => {
       throw Object.assign(new Error('O bot não está nesse grupo.'), { status: 404 })
     })
