@@ -69,11 +69,11 @@ module.exports = {
 
     // Total conta as repetidas (Destaque Semanal 30× = 30), como no portal.
     const total = insignias.reduce((sum, b) => sum + (b.vezes || 1), 0)
-    lines.push('', `🏅 *Insígnias: ${total}*${total !== insignias.length ? ` _(${insignias.length} diferentes)_` : ''}`)
+    lines.push('', `🏅 *Insígnias: ${total}*`)
     for (const b of insignias.slice(0, TOP)) {
       lines.push(`${b.icon} ${b.label}${b.vezes > 1 ? ` (${b.vezes}×)` : ''}`)
     }
-    if (insignias.length > TOP) lines.push(`_+${insignias.length - TOP} diferentes no portal_`)
+    if (insignias.length > TOP) lines.push(`_+${insignias.length - TOP} no portal_`)
     lines.push('', `${emoji.feather} portalmsy.site/perfil.html`)
 
     const caption = lines.join('\n')
