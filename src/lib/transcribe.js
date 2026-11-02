@@ -31,6 +31,7 @@ async function transcribe (buffer, mimetype = 'audio/ogg') {
   form.append('language', 'pt')
   form.append('response_format', 'json')
   form.append('temperature', '0')
+  form.append('prompt', await vocabulario())
 
   const res = await fetch(API, {
     method: 'POST',
@@ -41,7 +42,40 @@ async function transcribe (buffer, mimetype = 'audio/ogg') {
   const body = await res.json().catch(() => ({}))
   if (res.status === 429) throw new Error('Limite grátis da transcrição atingido por agora. Tente daqui a pouco.')
   if (!res.ok) throw new Error(body?.error?.message || `Groq ${res.status}`)
-  return String(body.text || '').trim()
+  return corrigir(String(body.text || '').trim())
 }
 
-module.exports = { enabled, transcribe }
+/* ── Palavras da Masayoshi ─────────────────────────────── */
+
+// O Whisper usa o "prompt" como referência de grafia: nomes que ele não
+// conhece ("Masayoshi" virava "Amasa Yoshi"). Os membros vêm do portal.
+const FIXAS = ['Masayoshi', 'Corvus', 'Ordem', 'Diretoria', 'portal', 'ICM', 'MSY', 'Halloween', 'Cineterror']
+const VOCAB_TTL = 6 * 3600e3
+let vocab = { text: FIXAS.join(', '), at: 0 }
+
+async function vocabulario () {
+  if (Date.now() - vocab.at < VOCAB_TTL) return vocab.text
+  try {
+    const db = require('./supabase')
+    const rows = db.enabled() ? await db.select('profiles?select=name&status=eq.ativo') : []
+    const nomes = [...new Set(rows.map(r => String(r.name || '').split(/\s+/)[0]).filter(n => n.length > 2))]
+    // O prompt aceita ~224 tokens: palavras fixas primeiro, nomes até caber.
+    vocab = { text: `Conversa do grupo da Masayoshi. ${[...FIXAS, ...nomes].join(', ')}.`.slice(0, 600), at: Date.now() }
+  } catch (err) {
+    console.error('[ouvir] vocabulário:', err.message)
+  }
+  return vocab.text
+}
+
+// O que ainda escapar do prompt: grafias erradas de "Masayoshi". "O Amasa
+// Yoshi" era "A Masayoshi" (o "a" grudou no nome); mantém a maiúscula.
+const CORRECOES = [
+  [/\b(?:[oa]\s+)?a\s*masa[\s-]*y?oshi\b/gi, m => (/^[OA]/.test(m) ? 'A' : 'a') + ' Masayoshi'],
+  [/\b(?:masa[\s-]+y?oshi|massa[\s-]*y?oshi|massayoshi|masayoxi|masaioshi)\b/gi, 'Masayoshi']
+]
+
+function corrigir (texto) {
+  return CORRECOES.reduce((t, [re, troca]) => t.replace(re, troca), texto)
+}
+
+module.exports = { enabled, transcribe, _test: { corrigir, vocabulario } }
