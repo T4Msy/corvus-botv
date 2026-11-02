@@ -4,19 +4,22 @@ const path = require('path')
 const sharp = require('sharp')
 
 /**
- * Figurinha animada de texto (/fig): o texto em fonte grossa com contorno
- * preto, trocando de cor em arco-íris a cada quadro. A fonte vem junto com
- * o bot (assets/fonts) porque o servidor não tem fontes instaladas.
+ * Figurinha animada de texto (/fig attp): fundo preto arredondado, texto na
+ * fonte Cinzel ondulando como bandeira (cada coluna de pixels sobe e desce
+ * numa onda) e as cores do arco-íris correndo pelas letras. A fonte vem junto
+ * com o bot (assets/fonts) porque o servidor não tem fontes instaladas.
  */
 
-const FONT_FILE = path.resolve(__dirname, '..', '..', 'assets', 'fonts', 'LuckiestGuy-Regular.ttf')
-const FONT = 'Luckiest Guy'
+const FONT_FILE = path.resolve(__dirname, '..', '..', 'assets', 'fonts', 'Cinzel.ttf')
+const FONT = 'Cinzel Bold'
 const SIZE = 512
-const BOX = 440 // área do texto (sobra margem para o contorno)
-const OUTLINE = 6 // espessura do contorno, em px
-const FRAMES = 12
-const DELAY_MS = 90
-const MAX_BYTES = 480 * 1024
+const RADIUS = 72 // cantos do fundo preto
+const BOX = 400 // área do texto (sobra margem para a onda)
+const FRAMES = 16
+const DELAY_MS = 70
+const WAVE_PX = 12 // altura da onda
+const WAVE_LEN = 220 // largura de uma onda, em px
+const MAX_BYTES = 480 * 1024 // o WhatsApp recusa figurinha animada acima de ~500 KB
 
 const escape = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -28,11 +31,19 @@ function clean (text) {
     .trim()
 }
 
-/** Texto numa cor, ajustado para caber em BOX×BOX (o pango escolhe o tamanho). */
-async function renderText (text, color) {
+function hslToRgb (h, s, l) {
+  s /= 100; l /= 100
+  const k = n => (n + h / 30) % 12
+  const a = s * Math.min(l, 1 - l)
+  const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))))
+  return [f(0), f(8), f(4)]
+}
+
+/** Texto em branco (só a forma), ajustado para caber em BOX×BOX. */
+async function renderMask (text) {
   const { data, info } = await sharp({
     text: {
-      text: `<span foreground="${color}">${escape(text)}</span>`,
+      text: `<span foreground="white">${escape(text)}</span>`,
       font: FONT,
       fontfile: FONT_FILE,
       width: BOX,
@@ -41,16 +52,40 @@ async function renderText (text, color) {
       wrap: 'word',
       rgba: true
     }
-  }).png().toBuffer({ resolveWithObject: true })
+  }).raw().toBuffer({ resolveWithObject: true })
   return { data, width: info.width, height: info.height }
 }
 
-function hslToHex (h, s, l) {
-  s /= 100; l /= 100
-  const k = n => (n + h / 30) % 12
-  const a = s * Math.min(l, 1 - l)
-  const f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))))
-  return `#${[f(0), f(8), f(4)].map(x => x.toString(16).padStart(2, '0')).join('')}`
+/** Fundo preto com cantos arredondados (RGBA cru, SIZE×SIZE). */
+async function background () {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}">` +
+    `<rect width="${SIZE}" height="${SIZE}" rx="${RADIUS}" fill="#000"/></svg>`
+  return sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer()
+}
+
+/** Quadro f: cada coluna deslocada na onda e pintada com a cor da sua posição. */
+function frame (bg, mask, f) {
+  const out = Buffer.from(bg)
+  const left = Math.round((SIZE - mask.width) / 2)
+  const top = Math.round((SIZE - mask.height) / 2)
+  const phase = (2 * Math.PI * f) / FRAMES
+  for (let x = 0; x < mask.width; x++) {
+    const X = left + x
+    const dy = Math.round(WAVE_PX * Math.sin((2 * Math.PI * X) / WAVE_LEN - phase))
+    const [r, g, b] = hslToRgb(((X / SIZE) * 360 + (f * 360) / FRAMES) % 360, 100, 62)
+    for (let y = 0; y < mask.height; y++) {
+      const a = mask.data[(y * mask.width + x) * 4 + 3]
+      if (!a) continue
+      const Y = top + y + dy
+      if (Y < 0 || Y >= SIZE) continue
+      const o = (Y * SIZE + X) * 4
+      const t = a / 255 // mistura com o preto do fundo (bordas suaves)
+      out[o] = Math.round(r * t + out[o] * (1 - t))
+      out[o + 1] = Math.round(g * t + out[o + 1] * (1 - t))
+      out[o + 2] = Math.round(b * t + out[o + 2] * (1 - t))
+    }
+  }
+  return out
 }
 
 /** WebP animado 512×512 com o texto. Lança erro se não sobrar texto. */
@@ -58,27 +93,12 @@ async function textSticker (input) {
   const text = clean(input)
   if (!text) throw new Error('Texto vazio.')
 
-  // Contorno: o texto em preto carimbado em volta (8 direções).
-  const black = await renderText(text, '#000000')
-  const left = Math.round((SIZE - black.width) / 2)
-  const top = Math.round((SIZE - black.height) / 2)
-  const outline = []
-  for (const dx of [-OUTLINE, 0, OUTLINE]) {
-    for (const dy of [-OUTLINE, 0, OUTLINE]) {
-      if (dx || dy) outline.push({ input: black.data, left: left + dx, top: top + dy })
-    }
-  }
+  const [bg, mask] = await Promise.all([background(), renderMask(text)])
+  const raw = { width: SIZE, height: SIZE, channels: 4 }
+  const frames = await Promise.all(
+    Array.from({ length: FRAMES }, (_, f) => sharp(frame(bg, mask, f), { raw }).png().toBuffer())
+  )
 
-  const frames = []
-  for (let i = 0; i < FRAMES; i++) {
-    const color = hslToHex((i * 360) / FRAMES, 100, 55) // volta inteira no arco-íris
-    const fill = await renderText(text, color)
-    frames.push(await sharp({
-      create: { width: SIZE, height: SIZE, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
-    }).composite([...outline, { input: fill.data, left, top }]).png().toBuffer())
-  }
-
-  // O WhatsApp recusa figurinha animada acima de ~500 KB: comprime mais se precisar.
   const encode = quality => sharp(frames, { join: { animated: true } })
     .webp({ quality, loop: 0, delay: Array(FRAMES).fill(DELAY_MS) })
     .toBuffer()
