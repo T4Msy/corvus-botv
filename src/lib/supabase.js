@@ -46,9 +46,14 @@ function insert (table, rows, { ignoreDuplicates = false } = {}) {
   })
 }
 
+/** PATCH em `path` (tabela?filtros); devolve as linhas alteradas. */
+function update (path, patch) {
+  return rest(path, { method: 'PATCH', body: patch, prefer: 'return=representation' })
+}
+
 /** POST /rest/v1/rpc/<fn> — chama uma função do banco. */
 function rpc (fn, args = {}) {
   return rest(`rpc/${fn}`, { method: 'POST', body: args })
 }
 
-module.exports = { enabled, select, insert, rpc }
+module.exports = { enabled, select, insert, update, rpc }

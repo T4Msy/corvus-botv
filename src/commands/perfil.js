@@ -1,24 +1,14 @@
 'use strict'
 
 const sharp = require('sharp')
-const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 const supabase = require('../lib/supabase')
+const { profileOf } = require('../lib/portal')
 const { insigniasOf } = require('../lib/insignias')
 const { getTargets } = require('../lib/group')
 const { getBuffer } = require('../lib/fetch')
 const { emoji, header, error } = require('../ui/theme')
 
 const TOP = 5 // insígnias "mais importantes" mostradas
-
-/** Número de telefone (só dígitos) de um JID — @lid vira número pelos participantes do grupo. */
-function phoneOf (jid, groupMetadata) {
-  if (!jid) return null
-  if (jid.endsWith('@s.whatsapp.net')) return jid.split('@')[0].split(':')[0]
-  const norm = jidNormalizedUser(jid)
-  const p = (groupMetadata?.participants || []).find(x => [x.id, x.lid, x.jid].filter(Boolean).map(jidNormalizedUser).includes(norm))
-  const pn = p?.phoneNumber || (p?.jid?.endsWith('@s.whatsapp.net') ? p.jid : null)
-  return pn ? pn.split('@')[0].split(':')[0] : null
-}
 
 function fmtDate (date) {
   const [y, m, d] = String(date || '').slice(0, 10).split('-')
@@ -32,19 +22,14 @@ module.exports = {
   fetchMeta: true,
   cooldown: 10,
   desc: 'Seu perfil do Portal MSY (ou de alguém: perfil @fulano): foto, insígnias e ICM.',
-  async run ({ sock, from, msg, sender, groupMetadata, config, reply }) {
+  async run ({ sock, from, msg, sender, groupMetadata, reply }) {
     if (!supabase.enabled()) { await reply(error('O portal não está conectado ao bot.')); return }
 
     const target = getTargets(msg)[0]
-    const phone = target ? phoneOf(target, groupMetadata) : phoneOf(msg.key.participantPn || sender, groupMetadata)
+    const { phone, profile } = await profileOf({
+      msg, sender, groupMetadata, jid: target, select: 'id,name,role,tier,avatar_url,join_date,icm,selected_badges'
+    })
     if (!phone) { await reply(error('Não consegui identificar o número dessa pessoa.')); return }
-
-    // O WhatsApp manda alguns números BR sem o 9 (5531 8441-…); o portal guarda com.
-    const variants = config.phoneVariants(phone).filter(v => /^\d+$/.test(v))
-    const rows = await supabase.select(
-      `member_whatsapp?select=profiles(id,name,role,tier,avatar_url,join_date,icm,selected_badges)&whatsapp=in.(${variants.join(',')})`
-    )
-    const profile = rows[0]?.profiles
     if (!profile) {
       await reply(error(target
         ? 'Essa pessoa não tem o WhatsApp cadastrado no Portal MSY.'
