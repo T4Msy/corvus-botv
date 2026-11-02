@@ -41,7 +41,8 @@ src/
     ping menu dono level rank corvusfrase regras diretoria evento   # Geral (menu: "Utilidades")
     sticker toimg emojimix traduzir ler              # Mídia
     tts viraraudio                                   # Áudio
-    play redes(baixar/tiktok/instagram/...)          # Downloads
+    redes(baixar/tiktok/instagram/...)               # Downloads (/play removed: YouTube
+                                                     # demands login from the Oracle IP)
     velha forca anagrama quiz ppt enquete            # Jogos (menu: "Diversão")
     ban promover rebaixar grupo todos del adv advs resetadv antilink
     rankmsg msgs limpar link welcome                 # Admin (menu: "Administração")

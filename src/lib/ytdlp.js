@@ -43,24 +43,6 @@ async function getInfo (query) {
   }
 }
 
-/** Baixa o áudio (mp3). Retorna { file, title }. */
-async function downloadAudio (query, { maxDuration = 2400 } = {}) {
-  const { url, title, duration } = await getInfo(query)
-  if (duration && duration > maxDuration) throw new Error('Áudio muito longo.')
-  const file = tmpFile('mp3')
-  await ytdl(url, {
-    output: file,
-    extractAudio: true,
-    audioFormat: 'mp3',
-    format: 'bestaudio/best',
-    noPlaylist: true,
-    maxFilesize: '16M',
-    noWarnings: true,
-    ffmpegLocation: FFMPEG_DIR
-  })
-  return { file, title }
-}
-
 /**
  * Baixa o vídeo (mp4, até 480p/64MB). Fallbacks quando o yt-dlp é
  * bloqueado: tikwm.com para TikTok e cobalt.tools para Instagram.
@@ -101,4 +83,4 @@ async function cleanup (file) {
   if (file) await fs.rm(file, { force: true })
 }
 
-module.exports = { downloadAudio, downloadVideo, cleanup }
+module.exports = { downloadVideo, cleanup }
