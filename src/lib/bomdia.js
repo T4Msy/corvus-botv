@@ -16,14 +16,15 @@ const genero = store('genero') // id do participante → 'ela' | 'ele'
 const BOM_DIA_RE = /^\s*(bo[mn]\s*dia+|b\s*dia+|bu[mn]\s*dia+)\b/i
 
 const ELA = {
-  saudacoes: ['Bom dia, linda! ☀️', 'Bom diaaa, flor! 🌸', 'Bom dia, princesa! 👑', 'Bom dia, maravilhosa! ✨'],
+  // Tom de um cara dando bom dia pra uma mulher: galanteio leve, sem forçar.
+  saudacoes: ['Bom dia, linda! ☀️', 'Bom dia, gata! 😏', 'Bom dia, princesa! 👑', 'Bom dia, moça bonita! 😊', 'Bom dia, linda! Acordou mais bonita hoje? 😉'],
   extras: [
-    'Que seu dia seja tão lindo quanto você. 💖',
-    'Já tomou seu café? ☕',
-    'Dormiu bem? Sonhou com o quê? 💭',
-    'Qual a música que vai embalar seu dia hoje? 🎶',
-    'Hoje é dia de brilhar, hein! 🌟',
-    'Vai fazer o quê de bom hoje? 🌷'
+    'Seu bom dia já melhorou o meu. 😌',
+    'Dormiu bem? Aposto que sonhou comigo. 😂',
+    'Já tomou seu café ou quer que eu pague um? ☕',
+    'Com esse bom dia o grupo até ficou mais bonito. ✨',
+    'E aí, quais os planos pra hoje? 👀',
+    'Avisa quando sorrir que o sol fica com inveja. 🌞'
   ]
 }
 

@@ -29,7 +29,7 @@ module.exports = {
 
     const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
     setGenero(ids, OPCOES[escolha])
-    const exemplo = { ela: 'Bom dia, linda! ☀️', ele: 'Bom dia, irmão! Suave? 🤜🤛', neutro: 'Bom dia! ☀️' }[escolha]
+    const exemplo = { ela: 'Bom dia, linda! ☀️ Seu bom dia já melhorou o meu. 😌', ele: 'Bom dia, irmão! Suave? 🤜🤛', neutro: 'Bom dia! ☀️' }[escolha]
     await reply(`${emoji.check} Anotado! Seu bom dia vai ser tipo: _${exemplo}_`)
   }
 }
