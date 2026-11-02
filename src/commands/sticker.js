@@ -1,22 +1,38 @@
 'use strict'
 
 const { resolveMedia, downloadMedia } = require('../lib/media')
-const { createSticker } = require('../lib/sticker')
+const { createSticker, addExif } = require('../lib/sticker')
+const { textSticker, clean } = require('../lib/textsticker')
 const { emoji } = require('../ui/theme')
 
 const MAX_VIDEO_SECONDS = 10
+const MAX_ATTP = 60 // letras; mais que isso a letra fica pequena demais
+
+/** "/fig attp <texto>": figurinha animada de texto em arco-íris. */
+async function attp ({ sock, msg, from, reply, config }, raw) {
+  const texto = clean(raw)
+  if (!texto) { await reply(`${emoji.feather} Use *${config.prefix}fig attp <texto>*\nEx.: ${config.prefix}fig attp Masayoshi`); return }
+  if (texto.length > MAX_ATTP) { await reply(`${emoji.cross} Texto muito grande (máx. ${MAX_ATTP} letras).`); return }
+  const sticker = await addExif(await textSticker(texto), 'figurinhas', config.botName)
+  await sock.sendMessage(from, { sticker }, { quoted: msg })
+}
 
 module.exports = {
   name: 'sticker',
-  aliases: ['s', 'figu', 'figurinha'],
+  aliases: ['fig', 's', 'figu', 'figurinha'],
   category: 'Mídia',
-  desc: 'Transforma imagem ou vídeo curto em figurinha.',
-  async run ({ sock, msg, from, reply, config }) {
+  desc: 'Imagem ou vídeo curto vira figurinha. Texto animado: fig attp <texto>.',
+  async run (ctx) {
+    const { msg, reply, config, args, text } = ctx
+    if (/^attp$/i.test(args[0] || '')) { await attp(ctx, text.replace(/^\s*attp\s*/i, '')); return }
+
+    const { sock, from } = ctx
     const media = resolveMedia(msg)
     if (!media) {
       await reply(
-        `${emoji.feather} Envie uma imagem/vídeo com *${config.prefix}sticker* na legenda, ` +
-        'ou responda a uma mídia com o comando.'
+        `${emoji.feather} Envie uma imagem/vídeo com *${config.prefix}fig* na legenda, ` +
+        'ou responda a uma mídia com o comando.\n' +
+        `${emoji.feather} Texto animado: *${config.prefix}fig attp <texto>*`
       )
       return
     }

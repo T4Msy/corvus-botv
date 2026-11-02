@@ -41,7 +41,7 @@ src/
     ping menu dono level rank corvusfrase diretoria evento lembrar
     msgs rankmsg advs                                # Geral (menu: "Utilidades")
     perfil presenca atividades recorde               # Geral, read the Portal MSY (lib/portal.js, lib/presenca.js)
-    sticker toimg emojimix traduzir ler fig          # Mídia (fig: lib/textsticker.js + assets/fonts)
+    sticker toimg emojimix traduzir ler              # Mídia (sticker attp: lib/textsticker.js + assets/fonts)
     tts viraraudio                                   # Áudio
     redes(baixar/tiktok/instagram/...)               # Downloads (/play removed: YouTube
                                                      # demands login from the Oracle IP)
