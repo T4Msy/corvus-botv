@@ -2,22 +2,21 @@
 
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
 const { botJids, getTargets } = require('../lib/group')
+const { pick, roll, bar, phrase } = require('../lib/meter')
 const { emoji, header } = require('../ui/theme')
 
 const FRASES = [
-  [0, 'Melhor ficar só na amizade… ou nem isso. 💔'],
-  [30, 'Tem chance, mas vai precisar de muito esforço. 😬'],
-  [55, 'Dá liga! Um date não faria mal. 😏'],
-  [75, 'Esse casal tem futuro! 💞'],
-  [90, 'Almas gêmeas. Já pode marcar o casamento! 💍']
+  [0, ['Melhor ficar só na amizade… ou nem isso. 💔', 'Nem com reza forte. 🙏']],
+  [30, ['Tem chance, mas vai precisar de muito esforço. 😬', 'Um olhar no corredor, quem sabe… 👀']],
+  [55, ['Dá liga! Um date não faria mal. 😏', 'Já tem gente shippando nos bastidores. 🍿']],
+  [75, ['Esse casal tem futuro! 💞', 'Já dá pra escolher o nome do filho. 👶']],
+  [90, ['Almas gêmeas. Já pode marcar o casamento! 💍', 'Casal do ano, ninguém segura. 🔥']]
 ]
-
-const pick = list => list[Math.floor(Math.random() * list.length)]
 
 module.exports = {
   name: 'casal',
   aliases: ['ship', 'shipar', 'namoro'],
-  category: 'Jogos',
+  category: 'Brincadeiras',
   groupOnly: true,
   fetchMeta: true,
   cooldown: 10,
@@ -38,14 +37,12 @@ module.exports = {
     if (chosen.length < 2) { await reply(`${emoji.cross} Preciso de pelo menos duas pessoas no grupo.`); return }
 
     const [a, b] = chosen
-    const nota = Math.floor(Math.random() * 101)
-    const frase = FRASES.filter(([min]) => nota >= min).pop()[1]
-    const barra = '❤️'.repeat(Math.round(nota / 20)) + '🤍'.repeat(5 - Math.round(nota / 20))
+    const nota = roll()
 
     await sock.sendMessage(from, {
       text: `${header('Casal do momento')}\n\n` +
         `💘 @${a.split('@')[0]} + @${b.split('@')[0]}\n\n` +
-        `${barra}  *${nota}%*\n${frase}`,
+        `${bar(nota, '❤️', '🤍')}\n\n${phrase(nota, FRASES)}`,
       mentions: [a, b]
     }, { quoted: msg })
   }

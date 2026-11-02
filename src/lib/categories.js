@@ -6,7 +6,7 @@
  */
 
 // Ordem de exibição no menu (rótulos já traduzidos para exibição).
-const ORDER = ['Utilidades', 'Mídia', 'Áudio', 'Downloads', 'Diversão', 'Administração', 'Dono']
+const ORDER = ['Utilidades', 'Mídia', 'Áudio', 'Downloads', 'Diversão', 'Brincadeiras', 'Administração', 'Dono']
 
 // Nomes internos (cmd.category nos arquivos de comando) -> rótulo exibido.
 const LABELS = {
