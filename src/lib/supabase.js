@@ -46,4 +46,9 @@ function insert (table, rows, { ignoreDuplicates = false } = {}) {
   })
 }
 
-module.exports = { enabled, select, insert }
+/** POST /rest/v1/rpc/<fn> — chama uma função do banco. */
+function rpc (fn, args = {}) {
+  return rest(`rpc/${fn}`, { method: 'POST', body: args })
+}
+
+module.exports = { enabled, select, insert, rpc }
