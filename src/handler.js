@@ -154,8 +154,8 @@ function createHandler ({ config, commands }) {
         const text = extractText(msg.message).trim()
 
         // Respostas automáticas (só em grupos ativos ou DMs), no máximo uma por
-        // mensagem, nesta ordem: quem voltou depois de dias sumido → bom dia/
-        // boa tarde/boa noite → "obrigado"/"te amo" ao Corvus → "Me chamou??".
+        // mensagem, nesta ordem: quem voltou depois de dias sumido → "tô triste"
+        // → bom dia/boa tarde/boa noite → "obrigado"/"te amo" ao Corvus → "Me chamou??".
         const canChat = !isGroup || groupsConf.get(from, {}).active === true
         if (!fromMe && canChat && !text.startsWith(config.prefix)) {
           const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
@@ -171,9 +171,12 @@ function createHandler ({ config, commands }) {
           const periodo = saudacao.detect(text)
           const greets = periodo && saudacao.firstToday(from, sender, periodo)
           const tipo = respostas.detect(text, { toBot })
+          const triste = respostas.detectTriste(text)
 
           let answer = null
           if (voltou) answer = await respostas.reply('sumido', ids, tone)
+          // Tristeza vem antes do bom dia ("bom dia… tô mal hoje"); 1x a cada 2h por pessoa.
+          else if (triste && ratelimit.check('resp-triste', `${from}|${sender}`, 2 * 3600) === 0) answer = await respostas.reply('triste', ids, tone)
           else if (greets) answer = await saudacao.reply(periodo, ids, tone)
           else if (tipo && ratelimit.check(`resp-${tipo}`, `${from}|${sender}`, 30) === 0) answer = await respostas.reply(tipo, ids, tone)
           // Citou "bot" sem ser nada acima: no máximo uma vez por minuto por conversa.

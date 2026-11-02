@@ -58,6 +58,49 @@ module.exports = {
     }
   },
 
+  // "Tô triste", "dia ruim", "tô mal"… — carinho e uma frase de força.
+  triste: {
+    chefe: {
+      saudacoes: ['Ei, chefe… 🫂', 'Chefe, tô aqui. 🍷', 'Até o chefe tem dia difícil. 🫂'],
+      extras: [
+        'Grandes líderes também cansam. Respira, que amanhã o império continua de pé. 🏛️',
+        'O senhor carrega a Masayoshi nas costas. Hoje deixa a gente carregar um pouco. 💪',
+        'Dia ruim passa. O que o senhor construiu aqui fica. 🐦‍⬛',
+        'Se precisar desabafar, o grupo inteiro tá contigo, chefe. 🫡'
+      ]
+    },
+    ela: {
+      saudacoes: ['Ei, linda… vem cá. 🫂', 'Não fica assim, princesa. 💕', 'Ow, quem deixou você triste? 😠🫂', 'Ei, tô aqui, viu? 🌷'],
+      extras: [
+        'Até os dias mais nublados passam, e o seu sorriso volta mais bonito depois. 🌤️',
+        'Você é muito mais forte do que imagina. Respira fundo, um passo de cada vez. 💖',
+        'Seja o que for, você não tá sozinha. O grupo inteiro tá contigo. 🫶',
+        'Se quiser desabafar, fala com a gente. E se não quiser, tudo bem também. 🌸',
+        'Toma um chocolate, um banho quentinho e se dá um carinho hoje. Você merece. 🍫',
+        'Dia ruim não é vida ruim. Amanhã é outra chance, e você vai brilhar. ✨'
+      ]
+    },
+    ele: {
+      saudacoes: ['Ei, irmão… tamo junto. 🫂', 'Força, mano! 💪', 'Ô parceiro, cola aqui. 🤜🤛', 'Segura firme, irmão. 🫂'],
+      extras: [
+        'Dia ruim acontece com todo mundo, mas não define quem você é. Amanhã é outro jogo. ⚽',
+        'Respira, bebe uma água e lembra: você já passou por coisa pior e venceu. 💪',
+        'Se quiser desabafar, chama a gente. Aqui ninguém fica sozinho. 🤝',
+        'Até guerreiro precisa descansar. Hoje pega leve contigo. ⚔️',
+        'Tempestade passa, irmão. E você vai sair mais forte dela. 🌩️➡️☀️'
+      ]
+    },
+    todos: {
+      saudacoes: ['Ei, tô aqui. 🫂', 'Força! 💪', 'Não fica assim… 💕'],
+      extras: [
+        'Dia ruim passa. Respira fundo, um passo de cada vez. 🌱',
+        'Você não tá sozinho(a): o grupo inteiro tá contigo. 🫶',
+        'Se quiser desabafar, fala com a gente. 🐦‍⬛',
+        'Amanhã é outra chance. Se cuida hoje. ✨'
+      ]
+    }
+  },
+
   // Quem volta a falar no grupo depois de dias sumido.
   sumido: {
     chefe: {
