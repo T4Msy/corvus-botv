@@ -165,7 +165,8 @@ function createHandler ({ config, commands }) {
         if (!fromMe && canChat && bomdia.isGoodMorning(text) && bomdia.firstToday(from, sender)) {
           const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
           const phoneJid = msg.key.participantPn || (sender.endsWith('@s.whatsapp.net') ? sender : null)
-          const greeting = await bomdia.reply(ids, { phoneJid, pushName: msg.pushName })
+          const isOwner = ids.some(j => config.isOwner(j))
+          const greeting = await bomdia.reply(ids, { phoneJid, pushName: msg.pushName, isOwner })
           await sock.sendMessage(from, { text: greeting }, { quoted: msg })
         }
 

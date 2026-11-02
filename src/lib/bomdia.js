@@ -53,6 +53,19 @@ const TODOS = {
   ]
 }
 
+// Donos do Corvus (config.owner): bom dia de chefe.
+const CHEFE = {
+  saudacoes: ['Bom dia, chefe! 👑', 'Bom dia, patrão! 🍷', 'Bom dia, meu chefe! 🫡', 'Bom dia, chefia! Tudo nos conformes? 😎', 'O chefe chegou! Bom dia! 👑'],
+  extras: [
+    'O império Masayoshi não para, e o senhor sabe disso. 🏛️',
+    'Ordens do dia? Tô aqui pra cumprir. 🫡',
+    'Café servido, grupo em ordem e o Corvus de prontidão. ☕🐦‍⬛',
+    'Com o chefe acordado, o grupo já tá em outro nível. 🔥',
+    'Grande líder, a Masayoshi agradece a presença. 🍷',
+    'Diga o que precisa, chefe. O Corvus resolve. 💼'
+  ]
+}
+
 const greeted = new Map() // "grupo|pessoa" → dia da última resposta
 
 function isGoodMorning (text) {
@@ -120,10 +133,11 @@ async function portalName (phoneJid) {
 }
 
 /**
- * Texto do bom dia. Ordem: o que a pessoa escolheu (/eusou) → nome no
+ * Texto do bom dia. Donos recebem o de chefe. Para os demais: o que a pessoa escolheu (/eusou) → nome no
  * portal → nome do WhatsApp → versão que serve para todos.
  */
-async function reply (ids, { phoneJid, pushName } = {}) {
+async function reply (ids, { phoneJid, pushName, isOwner = false } = {}) {
+  if (isOwner) return `${pick(CHEFE.saudacoes)} ${pick(CHEFE.extras)}`
   let g = ids.map(id => genero.get(id)).find(Boolean)
   if (!g) g = await guessByName(await portalName(phoneJid))
   if (!g) g = await guessByName(pushName)
