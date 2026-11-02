@@ -132,17 +132,22 @@ async function portalName (phoneJid) {
   }
 }
 
+/** Saudação em negrito numa linha, o complemento embaixo. */
+function format (set) {
+  return `*${pick(set.saudacoes)}*\n\n${pick(set.extras)}`
+}
+
 /**
  * Texto do bom dia. Donos recebem o de chefe. Para os demais: o que a pessoa escolheu (/eusou) → nome no
  * portal → nome do WhatsApp → versão que serve para todos.
  */
 async function reply (ids, { phoneJid, pushName, isOwner = false } = {}) {
-  if (isOwner) return `${pick(CHEFE.saudacoes)} ${pick(CHEFE.extras)}`
+  if (isOwner) return format(CHEFE)
   let g = ids.map(id => genero.get(id)).find(Boolean)
   if (!g) g = await guessByName(await portalName(phoneJid))
   if (!g) g = await guessByName(pushName)
   const set = g === 'ela' ? ELA : g === 'ele' ? ELE : TODOS
-  return `${pick(set.saudacoes)} ${pick(set.extras)}`
+  return format(set)
 }
 
 /** Guarda como a pessoa quer ser chamada em todas as suas identidades. */
