@@ -5,8 +5,8 @@
  *
  * A cada minuto lê o banco do portal (lib/supabase.js) e manda o que estiver
  * na hora: evento publicado, cobrança de presença, 1h/30min/início do evento,
- * atividade nova, prazo (no dia e 1h antes), reunião marcada/lembrete e
- * comunicado novo. Cada aviso, seus destinos (grupo padrão e/ou privado),
+ * atividade nova, prazo (no dia e 1h antes), reunião marcada/lembrete,
+ * comunicado novo e aniversário (às 6h, mudando o nome do grupo no dia). Cada aviso, seus destinos (grupo padrão e/ou privado),
  * antecedência e texto vêm da tabela bot_automations, editável na Central do
  * Bot (portal/bot.html).
  *
@@ -17,6 +17,10 @@
 
 const db = require('./lib/supabase')
 const { sendDm, sendGroup } = require('./lib/outbox')
+const { store } = require('./lib/store')
+const { pick } = require('./lib/meter')
+const saudacao = require('./lib/saudacao')
+const FRASES_ANIVERSARIO = require('./data/aniversario')
 
 const TICK_MS = 60 * 1000
 const GRACE_MS = 15 * 60 * 1000 // passou disso do horário, o aviso é descartado
@@ -295,6 +299,86 @@ async function comunicados (ctx) {
   }
 }
 
+/* ── Aniversário ───────────────────────────────────────── */
+
+const BIRTHDAY_TIME = '06:00'
+const SUBJECT_MAX = 100 // limite do WhatsApp para o nome do grupo
+const renamed = store('aniversario') // grupo → { original, subject, date }
+
+/** Aniversariantes de hoje (29/02 entra no dia 28 nos anos que não são bissextos). */
+function birthdaysToday (profiles, today) {
+  const md = today.slice(5)
+  const year = Number(today.slice(0, 4))
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+  return profiles.filter(p => {
+    const bd = String(p.birth_date || '').slice(5, 10)
+    return bd === md || (!leap && md === '02-28' && bd === '02-29')
+  })
+}
+
+/** "do"/"da"/"de" de cada pessoa; com mais de uma, só "de" se misturar. */
+async function articleOf (people, phones) {
+  const gs = await Promise.all(people.map(p => saudacao.generoOf({ phone: phones.get(p.id), name: p.name })))
+  if (gs.every(g => g === 'ela')) return 'da'
+  if (gs.every(g => g === 'ele')) return 'do'
+  return 'de'
+}
+
+const joinNames = names => names.length > 1 ? `${names.slice(0, -1).join(', ')} e ${names.at(-1)}` : names[0]
+
+/**
+ * Às 6h: troca o nome do grupo padrão para "ANIVERSÁRIO DO/DA FULANO 🎂🥳"
+ * e manda a mensagem marcando todos. No dia seguinte o nome volta ao original.
+ */
+async function aniversario (ctx) {
+  const { autos, now, sock, settings } = ctx
+  await restoreSubjects(sock)
+
+  const auto = autos.aniversario
+  const today = todayLocal()
+  if (!auto || !due(localDate(today, BIRTHDAY_TIME), 0, now)) return
+
+  const profiles = await db.select('profiles?select=id,name,birth_date&status=eq.ativo&birth_date=not.is.null')
+  const people = birthdaysToday(profiles, today)
+  if (!people.length || !await claim(auto.key, today)) return
+
+  const art = await articleOf(people, ctx.phones)
+  const nome = joinNames(people.map(p => p.name))
+
+  const group = settings.default_group
+  if (auto.to_group && group) {
+    try {
+      const meta = await sock.groupMetadata(group)
+      const subject = `ANIVERSÁRIO ${art.toUpperCase()} ${nome.toUpperCase()}`.slice(0, SUBJECT_MAX - 5).trim() + ' 🎂🥳'
+      await sock.groupUpdateSubject(group, subject)
+      if (!renamed.get(group)) renamed.set(group, { original: meta.subject, subject, date: today })
+    } catch (err) {
+      // Sem permissão (grupo só deixa admin mudar o nome): manda a mensagem mesmo assim.
+      console.error('[avisos] aniversário: não consegui mudar o nome do grupo:', err.message)
+    }
+  }
+
+  await deliver(ctx, auto, {
+    people: people.map(p => p.id),
+    vars: { nome, do: art, frase: pick(FRASES_ANIVERSARIO) }
+  })
+}
+
+/** Passado o dia, devolve o nome original (se ninguém mudou o nome no meio). */
+async function restoreSubjects (sock) {
+  const today = todayLocal()
+  for (const [group, info] of Object.entries(renamed.all())) {
+    if (info.date === today) continue
+    try {
+      const meta = await sock.groupMetadata(group)
+      if (meta.subject === info.subject) await sock.groupUpdateSubject(group, info.original)
+      renamed.delete(group)
+    } catch (err) {
+      console.error('[avisos] aniversário: não consegui voltar o nome do grupo:', err.message)
+    }
+  }
+}
+
 /* ── Loop ──────────────────────────────────────────────── */
 
 let running = false
@@ -319,7 +403,7 @@ async function tick (getSocket) {
       names: new Map(members.map(m => [m.id, m.name])),
       phones: new Map(contacts.map(c => [c.user_id, c.whatsapp]))
     }
-    for (const rule of [eventos, atividades, reunioes, comunicados]) {
+    for (const rule of [eventos, atividades, reunioes, comunicados, aniversario]) {
       try {
         await rule(ctx)
       } catch (err) {
@@ -344,4 +428,4 @@ function startAutomations (getSocket) {
   setInterval(() => tick(getSocket), TICK_MS)
 }
 
-module.exports = { startAutomations, _test: { localDate, todayLocal, due, render, deadlineOf } }
+module.exports = { startAutomations, _test: { localDate, todayLocal, due, render, deadlineOf, birthdaysToday, aniversario } }

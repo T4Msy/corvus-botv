@@ -109,6 +109,15 @@ async function reply (periodo, ids, { phoneJid, pushName, isOwner = false } = {}
   return format(frases[g] || frases.todos)
 }
 
+/**
+ * 'ela' | 'ele' | null de um membro do portal: o que escolheu no /eusou
+ * (pelo número) ou o palpite pelo nome. Usado no aviso de aniversário.
+ */
+async function generoOf ({ phone, name }) {
+  const chosen = phone ? genero.get(`${phone}@s.whatsapp.net`) : null
+  return chosen || guessByName(name)
+}
+
 /** Guarda como a pessoa quer ser chamada em todas as suas identidades. */
 function setGenero (ids, value) {
   for (const id of ids) {
@@ -117,4 +126,4 @@ function setGenero (ids, value) {
   }
 }
 
-module.exports = { detect, firstToday, reply, setGenero }
+module.exports = { detect, firstToday, reply, setGenero, generoOf }
