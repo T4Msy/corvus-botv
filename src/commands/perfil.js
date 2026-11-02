@@ -32,15 +32,17 @@ module.exports = {
   fetchMeta: true,
   cooldown: 10,
   desc: 'Seu perfil do Portal MSY (ou de alguém: perfil @fulano): foto, insígnias e ICM.',
-  async run ({ sock, from, msg, sender, groupMetadata, reply }) {
+  async run ({ sock, from, msg, sender, groupMetadata, config, reply }) {
     if (!supabase.enabled()) { await reply(error('O portal não está conectado ao bot.')); return }
 
     const target = getTargets(msg)[0]
     const phone = target ? phoneOf(target, groupMetadata) : phoneOf(msg.key.participantPn || sender, groupMetadata)
     if (!phone) { await reply(error('Não consegui identificar o número dessa pessoa.')); return }
 
+    // O WhatsApp manda alguns números BR sem o 9 (5531 8441-…); o portal guarda com.
+    const variants = config.phoneVariants(phone).filter(v => /^\d+$/.test(v))
     const rows = await supabase.select(
-      `member_whatsapp?select=profiles(id,name,role,tier,avatar_url,join_date,icm,selected_badges)&whatsapp=eq.${phone}`
+      `member_whatsapp?select=profiles(id,name,role,tier,avatar_url,join_date,icm,selected_badges)&whatsapp=in.(${variants.join(',')})`
     )
     const profile = rows[0]?.profiles
     if (!profile) {

@@ -3,7 +3,11 @@
 const { store } = require('./store')
 const periods = require('./periods')
 const { pick } = require('./meter')
+const config = require('../config')
 const FRASES = require('../data/saudacoes')
+
+/** Grafias do número com e sem o 9 (o WhatsApp manda alguns números BR sem ele). */
+const variantsOf = phone => config.phoneVariants(String(phone || '')).filter(v => /^\d+$/.test(v))
 
 /**
  * Resposta automática a "bom dia", "boa tarde" e "boa noite": uma vez por
@@ -83,7 +87,7 @@ async function portalName (phoneJid) {
   const phone = String(phoneJid || '').split('@')[0].split(':')[0]
   if (!supabase.enabled() || !/^\d{10,15}$/.test(phone)) return null
   try {
-    const rows = await supabase.select(`member_whatsapp?select=profiles(name)&whatsapp=eq.${phone}`)
+    const rows = await supabase.select(`member_whatsapp?select=profiles(name)&whatsapp=in.(${variantsOf(phone).join(',')})`)
     return rows[0]?.profiles?.name || null
   } catch {
     return null
@@ -118,7 +122,7 @@ async function reply (periodo, ids, opts) {
  * (pelo número) ou o palpite pelo nome. Usado no aviso de aniversário.
  */
 async function generoOf ({ phone, name }) {
-  const chosen = phone ? genero.get(`${phone}@s.whatsapp.net`) : null
+  const chosen = variantsOf(phone).map(v => genero.get(`${v}@s.whatsapp.net`)).find(Boolean)
   return chosen || guessByName(name)
 }
 
