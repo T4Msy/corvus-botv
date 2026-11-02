@@ -96,17 +96,21 @@ function format (set) {
 }
 
 /**
- * Texto da saudação do `periodo`. Donos recebem a de chefe. Para os demais:
- * o que a pessoa escolheu (/eusou) → nome no portal → nome do WhatsApp →
- * versão que serve para todos.
+ * Tom da resposta para quem mandou a mensagem: 'chefe' (donos) | 'ela' |
+ * 'ele' | 'todos'. Ordem: o que a pessoa escolheu (/eusou) → nome no portal
+ * → nome do WhatsApp → 'todos' (serve para qualquer pessoa).
  */
-async function reply (periodo, ids, { phoneJid, pushName, isOwner = false } = {}) {
-  const frases = FRASES[periodo]
-  if (isOwner) return format(frases.chefe)
+async function toneOf (ids, { phoneJid, pushName, isOwner = false } = {}) {
+  if (isOwner) return 'chefe'
   let g = ids.map(id => genero.get(id)).find(Boolean)
   if (!g) g = await guessByName(await portalName(phoneJid))
   if (!g) g = await guessByName(pushName)
-  return format(frases[g] || frases.todos)
+  return g || 'todos'
+}
+
+/** Texto da saudação do `periodo` (opts: os de toneOf). */
+async function reply (periodo, ids, opts) {
+  return format(FRASES[periodo][await toneOf(ids, opts)])
 }
 
 /**
@@ -126,4 +130,4 @@ function setGenero (ids, value) {
   }
 }
 
-module.exports = { detect, firstToday, reply, setGenero, generoOf }
+module.exports = { detect, firstToday, reply, toneOf, format, setGenero, generoOf }

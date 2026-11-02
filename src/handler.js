@@ -11,6 +11,7 @@ const { canSee, commandsOfCategory, categoryToText, commandCard } = require('./l
 const { applyWarn } = require('./lib/warns')
 const periods = require('./lib/periods')
 const saudacao = require('./lib/saudacao')
+const respostas = require('./lib/respostas')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -152,23 +153,33 @@ function createHandler ({ config, commands }) {
 
         const text = extractText(msg.message).trim()
 
-        // Responde quando alguém se refere ao bot, sem confundir o nome
-        // Corvus com a IA Masayoshi. Só em grupos ativos (ou DMs) e no
-        // máximo uma vez por minuto por conversa, para não virar spam.
+        // Respostas automáticas (só em grupos ativos ou DMs), no máximo uma por
+        // mensagem, nesta ordem: quem voltou depois de dias sumido → bom dia/
+        // boa tarde/boa noite → "obrigado"/"te amo" ao Corvus → "Me chamou??".
         const canChat = !isGroup || groupsConf.get(from, {}).active === true
-        if (!fromMe && canChat && !text.startsWith(config.prefix) && /\bbot\b/i.test(text) &&
-            ratelimit.check('mechamou', from, CALL_COOLDOWN) === 0) {
-          await sock.sendMessage(from, { text: 'Me chamou??' }, { quoted: msg })
-        }
-
-        // Bom dia / boa tarde / boa noite: uma vez por pessoa por período, puxando assunto.
-        const periodo = !fromMe && canChat ? saudacao.detect(text) : null
-        if (periodo && saudacao.firstToday(from, sender, periodo)) {
+        if (!fromMe && canChat && !text.startsWith(config.prefix)) {
           const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
-          const phoneJid = msg.key.participantPn || (sender.endsWith('@s.whatsapp.net') ? sender : null)
-          const isOwner = ids.some(j => config.isOwner(j))
-          const greeting = await saudacao.reply(periodo, ids, { phoneJid, pushName: msg.pushName, isOwner })
-          await sock.sendMessage(from, { text: greeting }, { quoted: msg })
+          const tone = {
+            phoneJid: msg.key.participantPn || (sender.endsWith('@s.whatsapp.net') ? sender : null),
+            pushName: msg.pushName,
+            isOwner: ids.some(j => config.isOwner(j))
+          }
+          const quoted = msg.message?.extendedTextMessage?.contextInfo?.participant
+          const toBot = Boolean(quoted) && botJids(sock).includes(jidNormalizedUser(quoted))
+
+          const voltou = isGroup && respostas.touch(from, sender)
+          const periodo = saudacao.detect(text)
+          const greets = periodo && saudacao.firstToday(from, sender, periodo)
+          const tipo = respostas.detect(text, { toBot })
+
+          let answer = null
+          if (voltou) answer = await respostas.reply('sumido', ids, tone)
+          else if (greets) answer = await saudacao.reply(periodo, ids, tone)
+          else if (tipo && ratelimit.check(`resp-${tipo}`, `${from}|${sender}`, 30) === 0) answer = await respostas.reply(tipo, ids, tone)
+          // Citou "bot" sem ser nada acima: no máximo uma vez por minuto por conversa.
+          else if (/\bbot\b/i.test(text) && ratelimit.check('mechamou', from, CALL_COOLDOWN) === 0) answer = 'Me chamou??'
+
+          if (answer) await sock.sendMessage(from, { text: answer }, { quoted: msg })
         }
 
         // Antilink: apaga convites de outros grupos e adverte (não-admins).
