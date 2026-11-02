@@ -18,7 +18,7 @@ const FRASES = [
 module.exports = {
   name: 'gay',
   aliases: ['gaymetro', 'medidorgay'],
-  category: 'Brincadeiras',
+  category: 'Jogos',
   groupOnly: true,
   cooldown: 10,
   desc: 'Medidor gay (brincadeira): gay, gay @fulano ou respondendo alguém.',

@@ -16,7 +16,7 @@ const FRASES = [
 module.exports = {
   name: 'casal',
   aliases: ['ship', 'shipar', 'namoro'],
-  category: 'Brincadeiras',
+  category: 'Jogos',
   groupOnly: true,
   fetchMeta: true,
   cooldown: 10,
