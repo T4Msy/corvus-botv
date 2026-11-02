@@ -29,7 +29,7 @@ function purgeOldData (tc) {
 module.exports = {
   name: 'rankmsg',
   aliases: ['rankmsgs', 'topmsg'],
-  category: 'Admin',
+  category: 'Geral',
   groupOnly: true,
   desc: 'Ranking de mensagens do grupo.',
   async run ({ sock, from, msg }) {

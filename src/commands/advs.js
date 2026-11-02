@@ -9,7 +9,7 @@ const warns = store('warns')
 module.exports = {
   name: 'advs',
   aliases: ['advertencias'],
-  category: 'Admin',
+  category: 'Geral',
   groupOnly: true,
   desc: 'Mostra as advertências de um membro.',
   async run ({ sock, from, sender, msg }) {

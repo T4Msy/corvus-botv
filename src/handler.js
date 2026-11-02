@@ -7,7 +7,7 @@ const { store } = require('./lib/store')
 const { getAdmins, botJid, botJids } = require('./lib/group')
 const { emoji, error, info, loading } = require('./ui/theme')
 const { wasSentByBot } = require('./lib/msgcache')
-const { commandsOfCategory, categoryToText, commandCard } = require('./lib/menuview')
+const { canSee, commandsOfCategory, categoryToText, commandCard } = require('./lib/menuview')
 const { applyWarn } = require('./lib/warns')
 const periods = require('./lib/periods')
 
@@ -185,7 +185,7 @@ function createHandler ({ config, commands }) {
         if (text.startsWith('menu_cat:')) {
           const cat = text.slice('menu_cat:'.length)
           const isOwner = fromMe || config.isOwner(sender)
-          const cmds = commandsOfCategory(cat, commands, isOwner)
+          const cmds = commandsOfCategory(cat, commands, { isOwner })
           if (cmds.length) {
             await sock.sendMessage(from, { text: categoryToText(cat, cmds, config) }, { quoted: msg })
           }
@@ -195,7 +195,7 @@ function createHandler ({ config, commands }) {
           const name = text.slice('menu_cmd:'.length).toLowerCase()
           const isOwner = fromMe || config.isOwner(sender)
           const cmd = commands.get(name)
-          if (cmd && (!cmd.ownerOnly || isOwner)) {
+          if (cmd && canSee(cmd, { isOwner })) {
             await sock.sendMessage(from, { text: commandCard(cmd, config) }, { quoted: msg })
           }
           continue

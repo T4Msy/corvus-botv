@@ -12,7 +12,7 @@ const sum = obj => Object.values(obj || {}).reduce((a, b) => a + b, 0)
 
 module.exports = {
   name: 'msgs',
-  category: 'Admin',
+  category: 'Geral',
   groupOnly: true,
   desc: 'Mensagens de alguém (hoje, na semana e no total) e do grupo.',
   async run ({ sock, from, sender, msg }) {

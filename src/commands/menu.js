@@ -4,7 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const { box, divider, emoji, error } = require('../ui/theme')
 const { groupByCategory } = require('../lib/categories')
-const { commandsOfCategory, categoryToText, commandCard } = require('../lib/menuview')
+const { canSee, commandsOfCategory, categoryToText, commandCard } = require('../lib/menuview')
 
 const MENU_IMAGE = path.resolve(__dirname, '..', '..', 'assets', 'images', 'menu.jpg')
 
@@ -33,9 +33,11 @@ module.exports = {
   aliases: ['help', 'ajuda', 'comandos'],
   category: 'Geral',
   desc: 'Menu de comandos: use sem argumento, com <categoria>, <comando> ou "geral".',
-  async run ({ sock, from, msg, args, config, commands, isOwner, reply }) {
+  fetchMeta: true, // isAdmin: Administração só aparece para admins do grupo
+  async run ({ sock, from, msg, args, config, commands, isOwner, isAdmin, reply }) {
+    const perms = { isOwner, isAdmin }
     const unique = [...new Set(commands.values())]
-    const visible = unique.filter(c => !c.ownerOnly || isOwner)
+    const visible = unique.filter(c => canSee(c, perms))
     const { byCat, cats } = groupByCategory(visible)
 
     const query = normalize(args.join(' ').trim())
@@ -50,13 +52,23 @@ module.exports = {
       // /menu <categoria> — aceita o atalho (admin) e o nome completo.
       const cat = cats.find(c => normalize(shortcutOf(c)) === query || normalize(c) === query)
       if (cat) {
-        await reply(categoryToText(cat, commandsOfCategory(cat, commands, isOwner), config))
+        await reply(categoryToText(cat, commandsOfCategory(cat, commands, perms), config))
+        return
+      }
+
+      // Categoria que existe, mas a pessoa não pode ver.
+      if (query === 'dono') {
+        await reply(`${emoji.lock} O menu do dono é só para os donos do ${config.botName}.`)
+        return
+      }
+      if (query === 'admin' || query === 'administracao') {
+        await reply(`${emoji.lock} O menu de administração é só para os administradores do grupo.`)
         return
       }
 
       // /menu <comando> — cartão de detalhe.
       const cmd = commands.get(query)
-      if (cmd && (!cmd.ownerOnly || isOwner)) {
+      if (cmd && canSee(cmd, perms)) {
         await reply(commandCard(cmd, config))
         return
       }

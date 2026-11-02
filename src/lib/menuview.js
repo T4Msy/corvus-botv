@@ -3,11 +3,22 @@
 const { emoji, divider } = require('../ui/theme')
 const { categoryOf } = require('./categories')
 
+/**
+ * Quem vê o comando no menu: Dono só os donos; Administração só admins
+ * do grupo (e os donos). `perms` = { isOwner, isAdmin }.
+ */
+function canSee (cmd, { isOwner = false, isAdmin = false } = {}) {
+  const cat = categoryOf(cmd)
+  if (cat === 'Dono') return isOwner
+  if (cat === 'Administração') return isOwner || isAdmin
+  return true
+}
+
 /** Comandos visíveis de uma categoria, ordenados por nome. */
-function commandsOfCategory (cat, commands, isOwner) {
+function commandsOfCategory (cat, commands, perms) {
   const all = [...new Set(commands.values())]
   return all
-    .filter(c => categoryOf(c) === cat && (!c.ownerOnly || isOwner))
+    .filter(c => categoryOf(c) === cat && canSee(c, perms))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
@@ -41,4 +52,4 @@ function commandCard (cmd, config) {
   return lines.join('\n')
 }
 
-module.exports = { commandsOfCategory, categoryToText, commandCard }
+module.exports = { canSee, commandsOfCategory, categoryToText, commandCard }
