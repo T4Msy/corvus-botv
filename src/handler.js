@@ -10,7 +10,7 @@ const { wasSentByBot } = require('./lib/msgcache')
 const { canSee, commandsOfCategory, categoryToText, commandCard } = require('./lib/menuview')
 const { applyWarn } = require('./lib/warns')
 const periods = require('./lib/periods')
-const bomdia = require('./lib/bomdia')
+const saudacao = require('./lib/saudacao')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -161,12 +161,13 @@ function createHandler ({ config, commands }) {
           await sock.sendMessage(from, { text: 'Me chamou??' }, { quoted: msg })
         }
 
-        // Bom dia: responde uma vez por pessoa por dia, puxando assunto.
-        if (!fromMe && canChat && bomdia.isGoodMorning(text) && bomdia.firstToday(from, sender)) {
+        // Bom dia / boa tarde / boa noite: uma vez por pessoa por período, puxando assunto.
+        const periodo = !fromMe && canChat ? saudacao.detect(text) : null
+        if (periodo && saudacao.firstToday(from, sender, periodo)) {
           const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
           const phoneJid = msg.key.participantPn || (sender.endsWith('@s.whatsapp.net') ? sender : null)
           const isOwner = ids.some(j => config.isOwner(j))
-          const greeting = await bomdia.reply(ids, { phoneJid, pushName: msg.pushName, isOwner })
+          const greeting = await saudacao.reply(periodo, ids, { phoneJid, pushName: msg.pushName, isOwner })
           await sock.sendMessage(from, { text: greeting }, { quoted: msg })
         }
 

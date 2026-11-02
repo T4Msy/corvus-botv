@@ -1,7 +1,7 @@
 'use strict'
 
 const { jidNormalizedUser } = require('@whiskeysockets/baileys')
-const { setGenero } = require('../lib/bomdia')
+const { setGenero } = require('../lib/saudacao')
 const { emoji } = require('../ui/theme')
 
 const OPCOES = { ela: 'ela', ele: 'ele', neutro: null }
@@ -10,7 +10,7 @@ module.exports = {
   name: 'eusou',
   aliases: ['souela', 'souele'],
   category: 'Geral',
-  desc: 'Como o Corvus te chama no bom dia: eusou ela | ele | neutro.',
+  desc: 'Como o Corvus te chama no bom dia/boa tarde/boa noite: eusou ela | ele | neutro.',
   async run ({ msg, sender, args, reply, config }) {
     // /souela e /souele já dizem a opção no próprio nome.
     const used = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '')

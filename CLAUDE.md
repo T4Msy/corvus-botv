@@ -52,6 +52,7 @@ src/
     groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
+    saudacao.js   # auto reply to bom dia/boa tarde/boa noite (phrases: src/data/saudacoes.js; tone: /eusou > IBGE first-name guess)
     outbox.js     # system sends: DM by @lid in a queue (API_DM_GROUP members only), group mentions
     supabase.js   # minimal Supabase REST client (service key) for automations.js
     leveling.js   # XP/level system (uses store('levels'))
