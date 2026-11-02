@@ -99,11 +99,17 @@ async function textSticker (input) {
     Array.from({ length: FRAMES }, (_, f) => sharp(frame(bg, mask, f), { raw }).png().toBuffer())
   )
 
-  const encode = quality => sharp(frames, { join: { animated: true } })
-    .webp({ quality, loop: 0, delay: Array(FRAMES).fill(DELAY_MS) })
+  // Lossless: a compressão com perda borrava as cores no fundo preto e deixava
+  // risquinhos entre os quadros. Se passar do limite do WhatsApp, cai para
+  // quase-sem-perda e, por último, com perda.
+  const encode = opts => sharp(frames, { join: { animated: true } })
+    .webp({ ...opts, loop: 0, delay: Array(FRAMES).fill(DELAY_MS) })
     .toBuffer()
-  const webp = await encode(80)
-  return webp.length > MAX_BYTES ? encode(50) : webp
+  for (const opts of [{ lossless: true }, { nearLossless: true, quality: 60 }]) {
+    const webp = await encode(opts)
+    if (webp.length <= MAX_BYTES) return webp
+  }
+  return encode({ quality: 80, smartSubsample: true })
 }
 
-module.exports = { textSticker, clean }
+module.exports = { textSticker, clean, _test: { frame, background, renderMask, FRAMES, DELAY_MS } }
