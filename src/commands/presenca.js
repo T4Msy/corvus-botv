@@ -8,14 +8,16 @@ const { emoji, header, error } = require('../ui/theme')
  * Presença nos eventos do Portal MSY pelo WhatsApp, com as mesmas regras
  * do portal (js/app.js → eventos):
  *  - "sim": confirma (status confirmado / response_status participar)
- *  - "não <motivo>": ausência justificada, vai para a Diretoria aprovar
- *  - já tinha confirmado e agora "não": vira pedido de cancelamento
+ *  - "justificar <motivo>": ausência justificada, vai para a Diretoria aprovar
+ *  - já tinha confirmado e agora justifica: vira pedido de cancelamento
  *    (event_cancel_requests), também para a Diretoria
+ * Não existe "não" sem motivo: quem escreve "não" é orientado a justificar.
  */
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
-const SIM = /^(sim|s|vou|confirmo|confirmar|presente|eu\s*vou)$/i
-const NAO = /^(n[aã]o|n|nao\s*vou|n[aã]o\s*vou|ausente|faltar)$/i
+const SIM = /^(sim|s|vou|confirmo|confirmar|presente)$/i
+const NAO = /^(n[aã]o|n|ausente|faltar)$/i // só para orientar a usar "justificar"
+const JUSTIFICAR = /^(justificar|justifica|justificativa|justifico)$/i
 
 /** Próximos eventos ativos e públicos que ainda não começaram. */
 async function upcoming () {
@@ -76,7 +78,8 @@ async function confirmar (ev, profile) {
   ).catch(() => {})
 }
 
-async function recusar (ev, profile, motivo, jaConfirmado) {
+/** Ausência justificada (ou pedido de cancelamento, se já tinha confirmado). */
+async function justificar (ev, profile, motivo, jaConfirmado) {
   const now = new Date().toISOString()
   if (jaConfirmado) {
     await db.insert('event_cancel_requests', [{ user_id: profile.id, event_id: ev.id, justificativa: motivo, status: 'pendente' }])
@@ -101,7 +104,7 @@ module.exports = {
   category: 'Geral',
   fetchMeta: true,
   cooldown: 5,
-  desc: 'Marca presença nos eventos do portal: presença sim | presença não <motivo> (com vários eventos: presença 2 sim).',
+  desc: 'Presença nos eventos do portal: presença sim | presença justificar <motivo> (com vários eventos: presença 2 sim).',
   async run ({ msg, sender, groupMetadata, args, reply, config }) {
     if (!db.enabled()) { await reply(error('O portal não está conectado ao bot.')); return }
     const p = `${config.prefix}presença`
@@ -123,17 +126,17 @@ module.exports = {
       `*${i + 1}.* ${e.title}${e.mandatory ? ' _(obrigatório)_' : ''}\n   ${emoji.bullet} ${quando(e)} · ${statusOf(rows, cancels, e)}`
     ).join('\n\n')
 
+    const n = events.length > 1 ? ' 1' : ''
+    const comandos =
+      `${emoji.feather} Vou: *${p}${n} sim*\n` +
+      `${emoji.feather} Não posso ir: *${p}${n} justificar <motivo>*`
+
     if (!resposta) {
-      const exemplo = events.length > 1 ? `${p} 1 sim` : `${p} sim`
-      await reply(
-        `${header(events.length > 1 ? 'Próximos eventos' : 'Próximo evento')}\n\n${lista()}\n\n` +
-        `${emoji.feather} Para confirmar: *${exemplo}*\n` +
-        `${emoji.feather} Para faltar: *${events.length > 1 ? `${p} 1 não` : `${p} não`} <motivo>*`
-      )
+      await reply(`${header(events.length > 1 ? 'Próximos eventos' : 'Próximo evento')}\n\n${lista()}\n\n${comandos}`)
       return
     }
-    if (!SIM.test(resposta) && !NAO.test(resposta)) {
-      await reply(`${emoji.cross} Responda *sim* ou *não*. Ex.: *${p}${events.length > 1 ? ' 1' : ''} sim*`)
+    if (!SIM.test(resposta) && !NAO.test(resposta) && !JUSTIFICAR.test(resposta)) {
+      await reply(`${emoji.cross} Não entendi. Use assim:\n\n${comandos}`)
       return
     }
     if (idx < 0) {
@@ -151,13 +154,16 @@ module.exports = {
       return
     }
 
-    if (!motivo) {
-      await reply(`${emoji.feather} Para faltar, diga o motivo (vai para a Diretoria):\n*${p}${events.length > 1 ? ` ${idx + 1}` : ''} não <motivo>*`)
-      return
-    }
+    const num = events.length > 1 ? ` ${idx + 1}` : ''
     if (atual.startsWith('⏳')) { await reply(`${emoji.moon} Você já tem um pedido em análise para *${ev.title}*.`); return }
     const jaConfirmado = atual.startsWith('✅')
-    await recusar(ev, profile, motivo, jaConfirmado)
+
+    // Não existe "não": para faltar é sempre justificando (vai para a Diretoria).
+    if (NAO.test(resposta) || !motivo) {
+      await reply(`${emoji.feather} Para faltar, justifique com o motivo (vai para a Diretoria):\n*${p}${num} justificar <motivo>*`)
+      return
+    }
+    await justificar(ev, profile, motivo, jaConfirmado)
     await reply(jaConfirmado
       ? `${emoji.check} Pedido de cancelamento enviado para a Diretoria: *${ev.title}*.\n_Motivo: ${motivo}_`
       : `${emoji.check} Ausência em *${ev.title}* enviada para a Diretoria aprovar.\n_Motivo: ${motivo}_`)
