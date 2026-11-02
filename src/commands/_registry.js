@@ -29,7 +29,13 @@ function loadCommands () {
         continue
       }
       for (const n of [cmd.name, ...(cmd.aliases || [])]) {
-        commands.set(n.toLowerCase(), cmd)
+        const key = n.toLowerCase()
+        // Nome repetido: o primeiro fica (o /fig novo já foi engolido pelo alias do /sticker).
+        if (commands.has(key) && commands.get(key) !== cmd) {
+          console.warn(`[registry] "${key}" já é de /${commands.get(key).name}; ignorado em /${cmd.name} (${file}).`)
+          continue
+        }
+        commands.set(key, cmd)
       }
     }
   }
