@@ -44,7 +44,7 @@ src/
     redes(baixar/tiktok/instagram/...)               # Downloads (/play removed: YouTube
                                                      # demands login from the Oracle IP)
     velha forca anagrama quiz ppt enquete            # Jogos (menu: "Diversão")
-    casal gay corno decisao                          # Jogos too (bars: lib/meter.js)
+    casal gay corno decisao fofoca                   # Jogos too (bars: lib/meter.js)
     ban promover rebaixar grupo todos del adv advs resetadv antilink
     rankmsg msgs limpar link welcome                 # Admin (menu: "Administração")
     reiniciar bcgrupos                               # Dono (ownerOnly)

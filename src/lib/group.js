@@ -32,6 +32,14 @@ function botJids (sock) {
     .map(jidNormalizedUser)
 }
 
+/** IDs dos participantes do grupo, sem o próprio bot (para sorteios). */
+function groupMembers (sock, metadata) {
+  const bot = new Set(botJids(sock))
+  return (metadata?.participants || [])
+    .filter(p => ![p.id, p.lid, p.jid, p.phoneNumber].filter(Boolean).some(id => bot.has(jidNormalizedUser(id))))
+    .map(p => p.id)
+}
+
 /**
  * Alvos de um comando admin: usuários mencionados ou, na ausência,
  * o autor da mensagem citada.
@@ -43,4 +51,4 @@ function getTargets (msg) {
   return ctx?.participant ? [ctx.participant] : []
 }
 
-module.exports = { getAdmins, botJid, botJids, getTargets }
+module.exports = { getAdmins, botJid, botJids, groupMembers, getTargets }

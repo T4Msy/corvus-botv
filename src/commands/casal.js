@@ -1,7 +1,6 @@
 'use strict'
 
-const { jidNormalizedUser } = require('@whiskeysockets/baileys')
-const { botJids, getTargets } = require('../lib/group')
+const { groupMembers, getTargets } = require('../lib/group')
 const { pick, roll, bar, phrase } = require('../lib/meter')
 const { emoji, header } = require('../ui/theme')
 
@@ -22,10 +21,7 @@ module.exports = {
   cooldown: 10,
   desc: 'Sorteia um casal do grupo (ou: casal @a @b).',
   async run ({ sock, from, msg, groupMetadata, reply }) {
-    const bot = new Set(botJids(sock))
-    const members = (groupMetadata?.participants || [])
-      .filter(p => ![p.id, p.lid, p.jid, p.phoneNumber].filter(Boolean).some(id => bot.has(jidNormalizedUser(id))))
-      .map(p => p.id)
+    const members = groupMembers(sock, groupMetadata)
 
     // Marcou duas pessoas: shipa elas. Uma: shipa com alguém sorteado.
     const chosen = getTargets(msg).slice(0, 2)
