@@ -101,4 +101,4 @@ async function createSticker (buffer, isVideo, meta) {
   return addExif(webp, meta.pack, meta.author)
 }
 
-module.exports = { createSticker }
+module.exports = { createSticker, addExif }
