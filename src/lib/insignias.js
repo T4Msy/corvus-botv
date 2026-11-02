@@ -43,8 +43,10 @@ const CONSTANCIA_META = {
   ]
 }
 
-// Peso para escolher as "mais importantes" (maior primeiro).
-const PESO_PREMIACAO = { Especial: 60, Anual: 50, Mensal: 30, Semanal: 20 }
+// Peso para escolher as "mais importantes" (maior primeiro). As anuais
+// (Destaque/Revelação do Ano) são as maiores da Masayoshi: vêm antes de tudo,
+// inclusive dos recordes (90) e da constância (70+).
+const PESO_PREMIACAO = { Anual: 100, Especial: 60, Mensal: 30, Semanal: 20 }
 
 /** Mesmo normalizador de nomes do ranking do portal (_tronNormalize). */
 function normalizeName (name) {
@@ -113,7 +115,10 @@ async function premiacoes (profile) {
   const rows = await db.rpc('get_member_badges', { p_user_id: profile.id })
   return (rows || []).map(b => ({
     icon: b.icone || '🏆',
-    label: b.titulo,
+    // Anual leva o ano junto: "Destaque do Ano 2025" (o ano fica em periodos).
+    label: b.importancia === 'Anual' && b.periodos?.length && !/\d{4}/.test(b.titulo)
+      ? `${b.titulo} ${b.periodos.join(', ')}`
+      : b.titulo,
     vezes: b.quantidade,
     peso: (PESO_PREMIACAO[b.importancia] || 10) + Math.min(b.quantidade || 0, 9)
   }))
@@ -130,7 +135,7 @@ function icm (profile) {
 
   const sel = profile.selected_badges
   const shown = !Array.isArray(sel) ? keys : keys.filter(k => sel.includes(k))
-  return shown.filter(k => ICM_META[k]).map(k => ({ ...ICM_META[k], peso: k === tier ? 40 : 15 }))
+  return shown.filter(k => ICM_META[k]).map(k => ({ ...ICM_META[k], peso: k === tier ? 12 : 10 })) // ICM por último
 }
 
 /** Todas as insígnias do membro (sem repetir), da mais importante para a menos. */
