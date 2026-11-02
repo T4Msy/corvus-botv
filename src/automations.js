@@ -6,7 +6,8 @@
  * A cada minuto lê o banco do portal (lib/supabase.js) e manda o que estiver
  * na hora: evento publicado, cobrança de presença, 1h/30min/início do evento,
  * atividade nova, prazo (no dia e 1h antes), reunião marcada/lembrete,
- * comunicado novo e aniversário (às 6h, mudando o nome do grupo no dia). Cada aviso, seus destinos (grupo padrão e/ou privado),
+ * comunicado novo, aniversário (às 6h, mudando o nome do grupo no dia) e
+ * aniversário de entrada na Masayoshi (às 10h). Cada aviso, seus destinos (grupo padrão e/ou privado),
  * antecedência e texto vêm da tabela bot_automations, editável na Central do
  * Bot (portal/bot.html).
  *
@@ -21,6 +22,7 @@ const { store } = require('./lib/store')
 const { pick } = require('./lib/meter')
 const saudacao = require('./lib/saudacao')
 const FRASES_ANIVERSARIO = require('./data/aniversario')
+const FRASES_ORDEM = require('./data/aniversario-ordem')
 
 const TICK_MS = 60 * 1000
 const GRACE_MS = 15 * 60 * 1000 // passou disso do horário, o aviso é descartado
@@ -302,6 +304,7 @@ async function comunicados (ctx) {
 /* ── Aniversário ───────────────────────────────────────── */
 
 const BIRTHDAY_TIME = '06:00'
+const ORDEM_TIME = '10:00' // aniversário de entrada na Masayoshi
 const SUBJECT_MAX = 100 // limite do WhatsApp para o nome do grupo
 const renamed = store('aniversario') // grupo → { original, subject, date }
 
@@ -364,6 +367,27 @@ async function aniversario (ctx) {
   })
 }
 
+/**
+ * Às 10h: "Hoje faz N anos que Fulano entrou na Masayoshi" (pela join_date
+ * do portal), uma mensagem por pessoa, marcando todos.
+ */
+async function aniversarioOrdem (ctx) {
+  const auto = ctx.autos.aniversario_ordem
+  const today = todayLocal()
+  if (!auto || !due(localDate(today, ORDEM_TIME), 0, ctx.now)) return
+
+  const profiles = await db.select('profiles?select=id,name,join_date&status=eq.ativo&join_date=not.is.null')
+  const year = Number(today.slice(0, 4))
+  for (const p of birthdaysToday(profiles.map(x => ({ ...x, birth_date: x.join_date })), today)) {
+    const anos = year - Number(String(p.join_date).slice(0, 4))
+    if (anos < 1 || !await claim(auto.key, `${today}:${p.id}`)) continue
+    await deliver(ctx, auto, {
+      people: [p.id],
+      vars: { nome: p.name, anos: `${anos} ${anos === 1 ? 'ano' : 'anos'}`, frase: pick(FRASES_ORDEM) }
+    })
+  }
+}
+
 /** Passado o dia, devolve o nome original (se ninguém mudou o nome no meio). */
 async function restoreSubjects (sock) {
   const today = todayLocal()
@@ -403,7 +427,7 @@ async function tick (getSocket) {
       names: new Map(members.map(m => [m.id, m.name])),
       phones: new Map(contacts.map(c => [c.user_id, c.whatsapp]))
     }
-    for (const rule of [eventos, atividades, reunioes, comunicados, aniversario]) {
+    for (const rule of [eventos, atividades, reunioes, comunicados, aniversario, aniversarioOrdem]) {
       try {
         await rule(ctx)
       } catch (err) {
@@ -428,4 +452,4 @@ function startAutomations (getSocket) {
   setInterval(() => tick(getSocket), TICK_MS)
 }
 
-module.exports = { startAutomations, _test: { localDate, todayLocal, due, render, deadlineOf, birthdaysToday, aniversario } }
+module.exports = { startAutomations, _test: { localDate, todayLocal, due, render, deadlineOf, birthdaysToday, aniversario, aniversarioOrdem } }
