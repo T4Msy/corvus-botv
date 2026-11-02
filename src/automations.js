@@ -6,7 +6,7 @@
  * A cada minuto lê o banco do portal (lib/supabase.js) e manda o que estiver
  * na hora: evento publicado, cobrança de presença, 1h/30min/início do evento,
  * atividade nova, prazo (no dia e 1h antes), reunião marcada/lembrete,
- * comunicado novo, aniversário (às 6h, mudando o nome do grupo no dia) e
+ * comunicado novo, aniversário (às 6h: card com a foto, nome do grupo trocado no dia) e
  * aniversário de entrada na Masayoshi (às 10h). Cada aviso, seus destinos (grupo padrão e/ou privado),
  * antecedência e texto vêm da tabela bot_automations, editável na Central do
  * Bot (portal/bot.html).
@@ -22,6 +22,7 @@ const { store } = require('./lib/store')
 const { pick } = require('./lib/meter')
 const saudacao = require('./lib/saudacao')
 const presenca = require('./lib/presenca')
+const { birthdayCard } = require('./lib/cards')
 const FRASES_ANIVERSARIO = require('./data/aniversario')
 const FRASES_ORDEM = require('./data/aniversario-ordem')
 
@@ -349,7 +350,7 @@ async function aniversario (ctx) {
   const today = todayLocal()
   if (!auto || !due(localDate(today, BIRTHDAY_TIME), 0, now)) return
 
-  const profiles = await db.select('profiles?select=id,name,birth_date&status=eq.ativo&birth_date=not.is.null')
+  const profiles = await db.select('profiles?select=id,name,birth_date,avatar_url,initials,color&status=eq.ativo&birth_date=not.is.null')
   const people = birthdaysToday(profiles, today)
   if (!people.length || !await claim(auto.key, today)) return
 
@@ -366,6 +367,15 @@ async function aniversario (ctx) {
     } catch (err) {
       // Sem permissão (grupo só deixa admin mudar o nome): manda a mensagem mesmo assim.
       console.error('[avisos] aniversário: não consegui mudar o nome do grupo:', err.message)
+    }
+    // Um card por aniversariante (foto do portal), antes da mensagem.
+    for (const p of people) {
+      try {
+        const image = await birthdayCard({ name: p.name, avatarUrl: p.avatar_url, initials: p.initials, color: p.color })
+        await sock.sendMessage(group, { image })
+      } catch (err) {
+        console.error(`[avisos] aniversário: card de ${p.name}:`, err.message)
+      }
     }
   }
 

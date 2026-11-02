@@ -12,6 +12,8 @@
  *   GET   /membros              → números que podem receber no privado
  *   POST  /enviar               → { grupo?, mensagem, mencionar?: [numeros], mencionarTodos? }
  *                                 { numero, mensagem }  (privado)
+ *   POST  /cartao/aniversario   → { numero }: manda no privado dessa pessoa o card de
+ *                                 aniversário dela + o texto do aviso (teste/prévia)
  *
  * As regras do privado (só membros de API_DM_GROUP, pelo @lid, em fila)
  * ficam em lib/outbox.js, compartilhado com os avisos automáticos.
@@ -25,6 +27,11 @@ const { store } = require('./lib/store')
 const { getAdmins, botJids } = require('./lib/group')
 const leveling = require('./lib/leveling')
 const { dmMembers, sendDm, sendGroup } = require('./lib/outbox')
+const db = require('./lib/supabase')
+const saudacao = require('./lib/saudacao')
+const { profileByPhone } = require('./lib/portal')
+const { birthdayCard } = require('./lib/cards')
+const FRASES_ANIVERSARIO = require('./data/aniversario')
 
 const groupsConf = store('groups')
 const counters = store('counters')
@@ -169,6 +176,27 @@ async function route (req, res, send) {
     if (!members) return send(400, { erro: 'Envio no privado desligado (API_DM_GROUP não definido).' })
     const numeros = [...new Set([...members.values()].map(m => m.phone))]
     return send(200, { numeros })
+  }
+
+  if (req.method === 'POST' && url.pathname === '/cartao/aniversario') {
+    const body = await readJson(req)
+    const numero = String(body.numero || '').replace(/\D/g, '')
+    if (!numero) return send(400, { erro: 'Informe "numero".' })
+    if (rateLimited()) return send(429, { erro: 'Muitos envios seguidos. Aguarde um minuto.' })
+    const profile = await profileByPhone(numero, 'name,avatar_url,initials,color')
+    if (!profile) return send(404, { erro: 'Esse número não está cadastrado no portal.' })
+
+    const image = await birthdayCard({ name: profile.name, avatarUrl: profile.avatar_url, initials: profile.initials, color: profile.color })
+    const [auto] = await db.select('bot_automations?select=template&key=eq.aniversario')
+    const g = await saudacao.generoOf({ name: profile.name })
+    const caption = String(auto?.template || '🎂 *Hoje é aniversário {do} {nome}!* 🥳')
+      .replace(/\{do\}/g, g === 'ela' ? 'da' : g === 'ele' ? 'do' : 'de')
+      .replace(/\{nome\}/g, profile.name)
+      .replace(/\{pessoas\}/g, '')
+      .replace(/\{frase\}/g, FRASES_ANIVERSARIO[Math.floor(Math.random() * FRASES_ANIVERSARIO.length)])
+      .replace(/\n{3,}/g, '\n\n').trim()
+    const sent = await sendDm(sock, numero, { image, caption })
+    return send(200, { ok: true, id: sent?.key?.id })
   }
 
   if (req.method === 'POST' && url.pathname === '/enviar') {

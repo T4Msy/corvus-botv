@@ -56,15 +56,18 @@ async function dmJid (sock, phone) {
   return config.phoneVariants(phone).map(v => members.get(v)?.jid).find(Boolean) || null
 }
 
-/** Manda no privado respeitando a fila; rejeita se o número não estiver liberado. */
-function sendDm (sock, phone, text) {
+/**
+ * Manda no privado respeitando a fila; rejeita se o número não estiver liberado.
+ * `content` é o texto ou uma mensagem pronta do Baileys (ex.: { image, caption }).
+ */
+function sendDm (sock, phone, content) {
   const job = dmQueue.then(async () => {
     const jid = await dmJid(sock, phone)
     if (!jid) throw Object.assign(new Error('Esse número não está no grupo liberado para o privado.'), { status: 403 })
     const wait = DM_GAP_MS - (Date.now() - lastDmAt)
     if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait))
     try {
-      return await sock.sendMessage(jid, { text })
+      return await sock.sendMessage(jid, typeof content === 'string' ? { text: content } : content)
     } finally {
       lastDmAt = Date.now()
     }
