@@ -10,6 +10,7 @@ const { wasSentByBot } = require('./lib/msgcache')
 const { canSee, commandsOfCategory, categoryToText, commandCard } = require('./lib/menuview')
 const { applyWarn } = require('./lib/warns')
 const periods = require('./lib/periods')
+const bomdia = require('./lib/bomdia')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -158,6 +159,12 @@ function createHandler ({ config, commands }) {
         if (!fromMe && canChat && !text.startsWith(config.prefix) && /\bbot\b/i.test(text) &&
             ratelimit.check('mechamou', from, CALL_COOLDOWN) === 0) {
           await sock.sendMessage(from, { text: 'Me chamou??' }, { quoted: msg })
+        }
+
+        // Bom dia: responde uma vez por pessoa por dia, puxando assunto.
+        if (!fromMe && canChat && bomdia.isGoodMorning(text) && bomdia.firstToday(from, sender)) {
+          const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
+          await sock.sendMessage(from, { text: bomdia.reply(ids) }, { quoted: msg })
         }
 
         // Antilink: apaga convites de outros grupos e adverte (não-admins).

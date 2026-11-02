@@ -38,7 +38,7 @@ src/
   handler.js      # message → dedupe/fromMe → counters/XP → antilink → prefix → permissions → run
   commands/       # one file per command (or an ARRAY of commands), auto-loaded by _registry.js
     _registry.js  # scans *.js (except _-prefixed) into a Map (name + aliases); accepts arrays
-    ping menu dono level rank corvusfrase diretoria evento          # Geral (menu: "Utilidades")
+    ping menu dono level rank corvusfrase diretoria evento eusou    # Geral (menu: "Utilidades")
     sticker toimg emojimix traduzir ler              # Mídia
     tts viraraudio                                   # Áudio
     redes(baixar/tiktok/instagram/...)               # Downloads (/play removed: YouTube
