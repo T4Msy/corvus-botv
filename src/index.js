@@ -9,6 +9,7 @@ const { createHandler } = require('./handler')
 const { createGroupParticipantsHandler } = require('./events/groupParticipants')
 const { startApi } = require('./api')
 const { startAutomations } = require('./automations')
+const { startReminders } = require('./lib/lembretes')
 
 async function main () {
   // `npm run qr` / --new-session: força novo pareamento apagando a sessão.
@@ -31,6 +32,7 @@ async function main () {
   await startConnection(config, handlers)
   startApi()
   startAutomations(getSocket)
+  startReminders(getSocket)
 }
 
 main().catch((err) => {
