@@ -2,6 +2,7 @@
 
 const db = require('../lib/supabase')
 const { profileOf } = require('../lib/portal')
+const { validate: validarJustificativa } = require('../lib/justificativa')
 const { emoji, header, error } = require('../ui/theme')
 
 /**
@@ -161,6 +162,15 @@ module.exports = {
     // Para faltar é sempre com motivo (vai para a Diretoria).
     if (!motivo) {
       await reply(`${emoji.feather} Para faltar, diga o motivo (vai para a Diretoria):\n*${p}${num} não <motivo>*`)
+      return
+    }
+    // "não vou ir", "preguiça", "kkkk"… não passam.
+    const check = validarJustificativa(motivo)
+    if (!check.ok) {
+      await reply(
+        `${emoji.cross} *Justificativa inválida, favor melhorar a justificativa.*\n\n${check.dica}\n` +
+        `_Ex.: ${p}${num} não vou viajar com a família_`
+      )
       return
     }
     await justificar(ev, profile, motivo, jaConfirmado)
