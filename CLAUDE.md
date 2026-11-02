@@ -38,7 +38,7 @@ src/
   handler.js      # message → dedupe/fromMe → counters/XP → antilink → prefix → permissions → run
   commands/       # one file per command (or an ARRAY of commands), auto-loaded by _registry.js
     _registry.js  # scans *.js (except _-prefixed) into a Map (name + aliases); accepts arrays
-    ping menu dono level rank corvusfrase diretoria evento eusou lembrar
+    ping menu dono level rank corvusfrase diretoria evento lembrar
     msgs rankmsg advs                                # Geral (menu: "Utilidades")
     perfil presenca atividades recorde               # Geral, read the Portal MSY (lib/portal.js, lib/presenca.js)
     sticker toimg emojimix traduzir ler              # Mídia
@@ -54,7 +54,7 @@ src/
     groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
-    saudacao.js   # auto reply to bom dia/boa tarde/boa noite (phrases: src/data/saudacoes.js; tone: /eusou > IBGE first-name guess)
+    saudacao.js   # auto reply to bom dia/boa tarde/boa noite (phrases: src/data/saudacoes.js; tone: IBGE first-name guess)
     outbox.js     # system sends: DM by @lid in a queue (API_DM_GROUP members only), group mentions
     supabase.js   # minimal Supabase REST client (service key) for automations.js
     leveling.js   # XP/level system (uses store('levels'))

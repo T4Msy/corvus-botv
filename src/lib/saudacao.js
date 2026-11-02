@@ -12,12 +12,9 @@ const variantsOf = phone => config.phoneVariants(String(phone || '')).filter(v =
 /**
  * Resposta automática a "bom dia", "boa tarde" e "boa noite": uma vez por
  * pessoa, por período, por dia em cada grupo. Donos recebem a de chefe; os
- * demais, o tom que pediram (/eusou) ou, sem escolha, o palpite pelo primeiro
- * nome (estatística do IBGE); na dúvida, a versão que serve para todo mundo.
- * As frases ficam em src/data/saudacoes.js.
+ * demais, o tom pelo primeiro nome (estatística do IBGE); na dúvida, a
+ * versão que serve para todo mundo. As frases ficam em src/data/saudacoes.js.
  */
-
-const genero = store('genero') // id do participante → 'ela' | 'ele'
 
 // No começo da mensagem: "bom dia", "bomdia", "bom diaaa", "bdia", "bundia",
 // "boa tarde", "boatarde", "btarde", "boa noite", "boanoite", "bnoite"…
@@ -101,14 +98,12 @@ function format (set) {
 
 /**
  * Tom da resposta para quem mandou a mensagem: 'chefe' (donos) | 'ela' |
- * 'ele' | 'todos'. Ordem: o que a pessoa escolheu (/eusou) → nome no portal
- * → nome do WhatsApp → 'todos' (serve para qualquer pessoa).
+ * 'ele' | 'todos'. Ordem: nome no portal → nome do WhatsApp → 'todos'
+ * (serve para qualquer pessoa).
  */
 async function toneOf (ids, { phoneJid, pushName, isOwner = false } = {}) {
   if (isOwner) return 'chefe'
-  let g = ids.map(id => genero.get(id)).find(Boolean)
-  if (!g) g = await guessByName(await portalName(phoneJid))
-  if (!g) g = await guessByName(pushName)
+  const g = await guessByName(await portalName(phoneJid)) || await guessByName(pushName)
   return g || 'todos'
 }
 
@@ -117,21 +112,9 @@ async function reply (periodo, ids, opts) {
   return format(FRASES[periodo][await toneOf(ids, opts)])
 }
 
-/**
- * 'ela' | 'ele' | null de um membro do portal: o que escolheu no /eusou
- * (pelo número) ou o palpite pelo nome. Usado no aviso de aniversário.
- */
-async function generoOf ({ phone, name }) {
-  const chosen = variantsOf(phone).map(v => genero.get(`${v}@s.whatsapp.net`)).find(Boolean)
-  return chosen || guessByName(name)
+/** 'ela' | 'ele' | null de um membro do portal, pelo nome. Usado no aviso de aniversário. */
+function generoOf ({ name }) {
+  return guessByName(name)
 }
 
-/** Guarda como a pessoa quer ser chamada em todas as suas identidades. */
-function setGenero (ids, value) {
-  for (const id of ids) {
-    if (value) genero.set(id, value)
-    else genero.delete(id)
-  }
-}
-
-module.exports = { detect, firstToday, reply, toneOf, format, setGenero, generoOf }
+module.exports = { detect, firstToday, reply, toneOf, format, generoOf }

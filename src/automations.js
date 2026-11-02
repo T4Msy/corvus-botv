@@ -328,8 +328,8 @@ function birthdaysToday (profiles, today) {
 }
 
 /** "do"/"da"/"de" de cada pessoa; com mais de uma, só "de" se misturar. */
-async function articleOf (people, phones) {
-  const gs = await Promise.all(people.map(p => saudacao.generoOf({ phone: phones.get(p.id), name: p.name })))
+async function articleOf (people) {
+  const gs = await Promise.all(people.map(p => saudacao.generoOf({ name: p.name })))
   if (gs.every(g => g === 'ela')) return 'da'
   if (gs.every(g => g === 'ele')) return 'do'
   return 'de'
@@ -353,7 +353,7 @@ async function aniversario (ctx) {
   const people = birthdaysToday(profiles, today)
   if (!people.length || !await claim(auto.key, today)) return
 
-  const art = await articleOf(people, ctx.phones)
+  const art = await articleOf(people)
   const nome = joinNames(people.map(p => p.name))
 
   const group = settings.default_group
