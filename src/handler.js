@@ -164,7 +164,9 @@ function createHandler ({ config, commands }) {
         // Bom dia: responde uma vez por pessoa por dia, puxando assunto.
         if (!fromMe && canChat && bomdia.isGoodMorning(text) && bomdia.firstToday(from, sender)) {
           const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
-          await sock.sendMessage(from, { text: bomdia.reply(ids) }, { quoted: msg })
+          const phoneJid = msg.key.participantPn || (sender.endsWith('@s.whatsapp.net') ? sender : null)
+          const greeting = await bomdia.reply(ids, { phoneJid, pushName: msg.pushName })
+          await sock.sendMessage(from, { text: greeting }, { quoted: msg })
         }
 
         // Antilink: apaga convites de outros grupos e adverte (não-admins).
