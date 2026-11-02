@@ -46,11 +46,11 @@ function resolveMedia (msg) {
 /**
  * Baixa o conteúdo de mídia (da própria mensagem ou da citada) como Buffer.
  */
-async function downloadMedia (msg) {
-  // Entrega ao Baileys só o nó de mídia que o resolveMedia achou (da própria
-  // mensagem ou da citada). Repassar a citada inteira falhava com "No message
-  // present" em áudio respondido (/ouvir).
-  const media = resolveMedia(msg)
+async function downloadMedia (msg, media = resolveMedia(msg)) {
+  // Entrega ao Baileys só o nó de mídia achado (da própria mensagem ou da
+  // citada). Passe o `media` já resolvido se o comando responder antes de
+  // baixar: responder citando `msg` faz o Baileys apagar o contextInfo dela
+  // (e com ele a mensagem citada).
   if (!media) throw new Error('Nenhuma mídia na mensagem.')
   const target = { key: msg.key, message: { [`${media.kind}Message`]: media.node } }
 

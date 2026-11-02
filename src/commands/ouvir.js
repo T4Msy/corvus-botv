@@ -27,9 +27,11 @@ module.exports = {
       return
     }
 
-    await reply(`${emoji.moon} Ouvindo o áudio${media.seconds ? ` (${duracao(media.seconds)})` : ''}...`)
     try {
-      const texto = await transcribe(await downloadMedia(msg), media.node.mimetype)
+      // Baixa antes de responder: o reply citando `msg` apaga dela a mensagem citada.
+      const audio = await downloadMedia(msg, media)
+      await reply(`${emoji.moon} Ouvindo o áudio${media.seconds ? ` (${duracao(media.seconds)})` : ''}...`)
+      const texto = await transcribe(audio, media.node.mimetype)
       await reply(texto
         ? `🎙️ *Transcrição*${media.seconds ? ` _(${duracao(media.seconds)})_` : ''}\n\n${texto}`
         : `${emoji.cross} Não consegui entender nada nesse áudio.`)
