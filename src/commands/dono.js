@@ -20,7 +20,7 @@ module.exports = {
 
     await reply(
       `${header(`Donos do ${config.botName}`)}\n\n` +
-      `${emoji.crown} ${donos} — Meus Fundadores\n` +
+      `${emoji.crown} ${donos} — Meus Fundadores\n\n` +
       `${emoji.raven} ${config.botName}, o bot da Masayoshi ${emoji.wine}`
     )
   }
