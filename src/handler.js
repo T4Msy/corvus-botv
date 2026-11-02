@@ -12,6 +12,8 @@ const { applyWarn } = require('./lib/warns')
 const periods = require('./lib/periods')
 const saudacao = require('./lib/saudacao')
 const respostas = require('./lib/respostas')
+const presenca = require('./lib/presenca')
+const portal = require('./lib/portal')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -154,13 +156,16 @@ function createHandler ({ config, commands }) {
         const text = extractText(msg.message).trim()
 
         // Respostas automáticas (só em grupos ativos ou DMs), no máximo uma por
-        // mensagem, nesta ordem: quem voltou depois de dias sumido → "tô triste"
+        // mensagem, nesta ordem: resposta à cobrança de presença (DM) → quem
+        // voltou depois de dias sumido → "tô triste"
         // → bom dia/boa tarde/boa noite → "obrigado"/"te amo" ao Corvus → "Me chamou??".
         const canChat = !isGroup || groupsConf.get(from, {}).active === true
         if (!fromMe && canChat && !text.startsWith(config.prefix)) {
-          const ids = [sender, msg.key.participantPn].filter(Boolean).map(jidNormalizedUser)
+          // Número de telefone: participantPn no grupo, senderPn no privado (@lid).
+          const pn = msg.key.participantPn || msg.key.senderPn
+          const ids = [sender, pn].filter(Boolean).map(jidNormalizedUser)
           const tone = {
-            phoneJid: msg.key.participantPn || (sender.endsWith('@s.whatsapp.net') ? sender : null),
+            phoneJid: pn || (sender.endsWith('@s.whatsapp.net') ? sender : null),
             pushName: msg.pushName,
             isOwner: ids.some(j => config.isOwner(j))
           }
@@ -173,14 +178,23 @@ function createHandler ({ config, commands }) {
           const tipo = respostas.detect(text, { toBot })
           const triste = respostas.detectTriste(text)
 
+          // Privado: "sim" / "não <motivo>" respondendo a uma cobrança de presença
+          // recente vem antes de tudo (null quando não há cobrança: segue o normal).
           let answer = null
-          if (voltou) answer = await respostas.reply('sumido', ids, tone)
-          // Tristeza vem antes do bom dia ("bom dia… tô mal hoje"); 1x a cada 2h por pessoa.
-          else if (triste && ratelimit.check('resp-triste', `${from}|${sender}`, 2 * 3600) === 0) answer = await respostas.reply('triste', ids, tone)
-          else if (greets) answer = await saudacao.reply(periodo, ids, tone)
-          else if (tipo && ratelimit.check(`resp-${tipo}`, `${from}|${sender}`, 30) === 0) answer = await respostas.reply(tipo, ids, tone)
-          // Citou "bot" sem ser nada acima: no máximo uma vez por minuto por conversa.
-          else if (/\bbot\b/i.test(text) && ratelimit.check('mechamou', from, CALL_COOLDOWN) === 0) answer = 'Me chamou??'
+          if (!isGroup && tone.phoneJid && presenca.parseResposta(text)) {
+            const profile = await portal.profileByPhone(portal.phoneOf(tone.phoneJid)).catch(() => null)
+            if (profile) answer = await presenca.responderCobranca(profile, text)
+          }
+
+          if (!answer) {
+            if (voltou) answer = await respostas.reply('sumido', ids, tone)
+            // Tristeza vem antes do bom dia ("bom dia… tô mal hoje"); 1x a cada 2h por pessoa.
+            else if (triste && ratelimit.check('resp-triste', `${from}|${sender}`, 2 * 3600) === 0) answer = await respostas.reply('triste', ids, tone)
+            else if (greets) answer = await saudacao.reply(periodo, ids, tone)
+            else if (tipo && ratelimit.check(`resp-${tipo}`, `${from}|${sender}`, 30) === 0) answer = await respostas.reply(tipo, ids, tone)
+            // Citou "bot" sem ser nada acima: no máximo uma vez por minuto por conversa.
+            else if (/\bbot\b/i.test(text) && ratelimit.check('mechamou', from, CALL_COOLDOWN) === 0) answer = 'Me chamou??'
+          }
 
           if (answer) await sock.sendMessage(from, { text: answer }, { quoted: msg })
         }

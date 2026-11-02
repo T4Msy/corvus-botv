@@ -21,6 +21,7 @@ const { sendDm, sendGroup } = require('./lib/outbox')
 const { store } = require('./lib/store')
 const { pick } = require('./lib/meter')
 const saudacao = require('./lib/saudacao')
+const presenca = require('./lib/presenca')
 const FRASES_ANIVERSARIO = require('./data/aniversario')
 const FRASES_ORDEM = require('./data/aniversario-ordem')
 
@@ -82,7 +83,7 @@ async function logMessage (row) {
  *  - grupo padrão: marca todo mundo; {pessoas}/{pendentes} viram menções de `people`
  *  - privado: cada um de `people` com WhatsApp; {pessoas}/{pendentes} viram texto pessoal
  */
-async function deliver (ctx, auto, { vars, people = [], groupText = null }) {
+async function deliver (ctx, auto, { vars, people = [], groupText = null, dmFooter = '' }) {
   const { sock, settings, phones, names } = ctx
 
   if (auto.to_group && settings.default_group) {
@@ -116,7 +117,7 @@ async function deliver (ctx, auto, { vars, people = [], groupText = null }) {
         pessoas: 'você',
         pendentes: 'Você ainda não marcou a sua presença.',
         todos: ''
-      }).trim()
+      }).trim() + dmFooter
       let error = null
       try {
         await sendDm(sock, phone, text)
@@ -174,7 +175,14 @@ async function eventos (ctx) {
       if (!auto || !due(start, auto.offset_minutes ?? 0, now)) continue
       if (!await claim(key, ev.id)) continue
       const pending = await pendingOf(ev)
-      if (pending.length) await deliver(ctx, auto, { vars, people: pending })
+      if (!pending.length) continue
+      // No privado dá para responder ali mesmo ("sim" / "não <motivo>"): lib/presenca.js.
+      if (auto.to_private) pending.forEach(id => presenca.marcarCobranca(id, ev.id))
+      await deliver(ctx, auto, {
+        vars,
+        people: pending,
+        dmFooter: '\n\n_Responda aqui mesmo: *sim* para confirmar ou *não* + o motivo para justificar._'
+      })
     }
 
     for (const key of ['evento_1h', 'evento_30min', 'evento_inicio']) {
