@@ -36,7 +36,11 @@ async function denyAccess (sock, from, msg, sender, config) {
   if (ratelimit.check('sem-acesso', sender, DENY_COOLDOWN) > 0) return
   await sock.sendMessage(
     from,
-    { text: `Oii eu sou o ${config.botName}, você não tem permissão para me usar, peça para o meu dono!!!` },
+    {
+      text: `${emoji.raven} *Alto lá, viajante.*\n\n` +
+        `Eu sou o ${config.botName}, e o meu voo ainda não é para você. ${emoji.wine}\n` +
+        'Quer a minha companhia? Fale com o meu dono: o contato pousa logo abaixo.'
+    },
     { quoted: msg }
   )
   const card = await access.contactCard(sock)
