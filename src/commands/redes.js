@@ -23,11 +23,11 @@ module.exports = {
       await sock.sendMessage(from, { video: { url: file }, caption: res.title }, { quoted: msg })
     } catch (err) {
       console.error('[baixar] erro:', err)
-      const isCobaltFail = err.message?.includes('cobalt')
-      const hint = /instagram/i.test(link) && isCobaltFail
-        ? ' O Instagram exige login — baixe manualmente e envie o vídeo aqui.'
-        : ''
-      await reply(`${emoji.cross} Não consegui baixar: ${err.message}.${hint}`)
+      if (err.code === 'IG_BLOCKED') {
+        await reply(`${emoji.cross} O Instagram bloqueou o download. Baixe o vídeo e envie aqui.`)
+        return
+      }
+      await reply(`${emoji.cross} Não consegui baixar: ${err.message}.`)
     } finally {
       await cleanup(file)
     }

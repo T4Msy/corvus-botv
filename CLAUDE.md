@@ -69,8 +69,9 @@ src/
     sticker.js    # createSticker(): sharp (image) + ffmpeg-static (video) + node-webpmux (EXIF)
     audio.js      # ffmpeg effects lib (applyEffect/EFFECTS) + toMp3/toOpus — effects commands
                   # were removed; the lib stays for /tts and /viraraudio
-    tts.js translate.js ocr.js emojimix.js ytdlp.js cobalt.js tikwm.js  # feature helpers (free/no-key)
+    tts.js translate.js ocr.js emojimix.js ytdlp.js tikwm.js  # feature helpers (free/no-key)
                   # tikwm = TikTok fallback: TikTok blocks yt-dlp from the Oracle datacenter IP
+                  # Instagram needs cookies from a secondary account: data/instagram-cookies.txt
     games/ttt.js  # pure tic-tac-toe logic
     fetch.js text.js
   data/           # game data: anagrama.json, quiz.json (committed)
