@@ -9,10 +9,9 @@ const juntar = nomes => nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e $
 
 module.exports = {
   name: 'dono',
-  membersOnly: true,
   aliases: ['owner', 'criador', 'donos'],
   desc: 'Mostra quem são os fundadores do Corvus.',
-  async run ({ reply, config }) {
+  async run ({ reply, config, isMember }) {
     const perfis = await Promise.all(
       config.owner.numbers.map(n => profileByPhone(n, 'name').catch(() => null))
     )
@@ -22,7 +21,9 @@ module.exports = {
     await reply(
       `${header(`Donos do ${config.botName}`)}\n\n` +
       `${emoji.crown} ${donos} — Meus Fundadores\n\n` +
-      `${emoji.raven} ${config.botName}, o bot da Masayoshi ${emoji.wine}`
+      (isMember
+        ? `${emoji.raven} ${config.botName}, o bot da Masayoshi ${emoji.wine}`
+        : `${emoji.raven} ${config.botName} ${emoji.wine}`)
     )
   }
 }

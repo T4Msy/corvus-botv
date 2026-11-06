@@ -243,6 +243,24 @@ function createHandler ({ config, commands }) {
           if (answer) await sock.sendMessage(from, { text: answer }, { quoted: msg })
         }
 
+        // Fora da Masayoshi (grupo aberto e liberados no portal): só o bom dia,
+        // com o tom de cada pessoa e sem as frases que citam a Masayoshi.
+        const chatOn = !isGroup || groupsConf.get(from, {}).active === true
+        if (!fromMe && chatOn && !text.startsWith(config.prefix) &&
+            (access.isPublicChat(from) || await accessLevel() === 'guest')) {
+          const periodo = saudacao.detect(text)
+          if (periodo && saudacao.firstToday(from, sender, periodo)) {
+            const pn = msg.key.participantPn || msg.key.senderPn
+            const answer = await saudacao.reply(periodo, senderIds, {
+              phoneJid: pn || (sender.endsWith('@s.whatsapp.net') ? sender : null),
+              pushName: msg.pushName,
+              isOwner,
+              semMasayoshi: true
+            })
+            await sock.sendMessage(from, { text: answer }, { quoted: msg })
+          }
+        }
+
         // Antilink: apaga convites de outros grupos e adverte (não-admins).
         if (isGroup && !fromMe && groupsConf.get(from, {}).antilink && INVITE_RE.test(text)) {
           try {

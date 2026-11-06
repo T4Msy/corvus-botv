@@ -92,8 +92,9 @@ async function portalName (phoneJid) {
 }
 
 /** Saudação em negrito numa linha, o complemento embaixo. */
-function format (set) {
-  return `*${pick(set.saudacoes)}*\n\n${pick(set.extras)}`
+function format (set, { semMasayoshi = false } = {}) {
+  const extras = semMasayoshi ? set.extras.filter(e => !/masayoshi/i.test(e)) : set.extras
+  return `*${pick(set.saudacoes)}*\n\n${pick(extras)}`
 }
 
 /**
@@ -107,9 +108,9 @@ async function toneOf (ids, { phoneJid, pushName, isOwner = false } = {}) {
   return g || 'todos'
 }
 
-/** Texto da saudação do `periodo` (opts: os de toneOf). */
+/** Texto da saudação do `periodo` (opts: os de toneOf + semMasayoshi). */
 async function reply (periodo, ids, opts) {
-  return format(FRASES[periodo][await toneOf(ids, opts)])
+  return format(FRASES[periodo][await toneOf(ids, opts)], opts)
 }
 
 /** 'ela' | 'ele' | null de um membro do portal, pelo nome. Usado no aviso de aniversário. */
