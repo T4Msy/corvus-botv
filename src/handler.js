@@ -38,8 +38,8 @@ async function denyAccess (sock, from, msg, sender, config) {
     from,
     {
       text: `${emoji.raven} *Oii! Eu sou o ${config.botName}, um bot de WhatsApp.* ${emoji.wine}\n\n` +
-        'Você ainda não tem permissão para me usar.\n' +
-        'Para liberar, é só falar com o meu dono: o contato está logo abaixo.'
+        'Você ainda não tem permissão para usar esse bot.\n' +
+        'Para liberar, fale com o meu dono: o contato está logo abaixo.'
     },
     { quoted: msg }
   )
