@@ -10,7 +10,7 @@ module.exports = {
   category: 'Admin',
   fetchMeta: true,
   desc: 'Ativa ou desativa o Corvus neste grupo: corvus ativar | desativar.',
-  async run ({ from, args, isGroup, isAdmin, isOwner, reply, config }) {
+  async run ({ from, args, isGroup, isAdmin, isOwner, isMember, reply, config }) {
     const opt = (args[0] || '').toLowerCase()
 
     if (opt !== 'ativar' && opt !== 'desativar') {
@@ -34,6 +34,10 @@ module.exports = {
     }
 
     await groups.update(from, (current) => ({ ...current, active: true }), {})
+    if (isGroup && !isMember) {
+      await reply(`${emoji.check} Oiii! Eu sou o Corvus.\nDê *${config.prefix}menu* para mais informações. 🐦‍⬛🍷`)
+      return
+    }
     if (isGroup) {
       await reply(`${emoji.check} Oiii! Eu sou o Corvus, desenvolvido por Tales e Xitter.\nDê *${config.prefix}menu* para mais informações. 🐦‍⬛🍷`)
       return

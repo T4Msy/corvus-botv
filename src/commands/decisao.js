@@ -31,15 +31,17 @@ module.exports = {
   category: 'Jogos',
   cooldown: 5,
   desc: 'O corvo decide por você: decisao <pergunta>.',
-  async run ({ text, reply, config }) {
+  async run ({ text, reply, config, isMember }) {
     if (!text) {
       await reply(`${emoji.feather} Use *${config.prefix}decisao <pergunta>*\nEx.: ${config.prefix}decisao devo mandar mensagem pro ex?`)
       return
     }
     const resposta = pick(Object.keys(RESPOSTAS))
+    // A piada do Tales só faz sentido para quem é da Masayoshi.
+    const comentarios = RESPOSTAS[resposta].filter(c => isMember || !c.includes('Tales'))
     await reply(
       `${header('O corvo decidiu')}\n\n` +
-      `${emoji.raven} _${text}_\n\n${resposta}\n${pick(RESPOSTAS[resposta])}`
+      `${emoji.raven} _${text}_\n\n${resposta}\n${pick(comentarios)}`
     )
   }
 }

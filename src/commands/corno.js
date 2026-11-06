@@ -13,6 +13,9 @@ const FRASES = [
   [100, ['100%! O próprio boi da Masayoshi. 🐂👑']]
 ]
 
+// Para quem é de fora, o 100% não cita a Masayoshi.
+const FRASES_FORA = [...FRASES.slice(0, -1), [100, ['100%! O próprio boi do pasto. 🐂👑']]]
+
 module.exports = {
   name: 'corno',
   aliases: ['cornometro', 'chifre'],
@@ -20,14 +23,14 @@ module.exports = {
   groupOnly: true,
   cooldown: 10,
   desc: 'Medidor de corno (brincadeira): corno, corno @fulano ou respondendo alguém.',
-  async run ({ sock, from, msg, sender }) {
+  async run ({ sock, from, msg, sender, isMember }) {
     const target = getTargets(msg)[0] || sender
     const nota = roll()
 
     await sock.sendMessage(from, {
       text: `${header('Cornômetro')}\n\n` +
         `🐂 Quanto @${target.split('@')[0]} é corno:\n\n` +
-        `${bar(nota, '🦌')}\n\n${phrase(nota, FRASES)}`,
+        `${bar(nota, '🦌')}\n\n${phrase(nota, isMember ? FRASES : FRASES_FORA)}`,
       mentions: [target]
     }, { quoted: msg })
   }

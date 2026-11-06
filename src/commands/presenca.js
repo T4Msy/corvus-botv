@@ -10,6 +10,7 @@ const { emoji, header, error } = require('../ui/theme')
 
 module.exports = {
   name: 'presenca',
+  membersOnly: true,
   aliases: ['presença', 'presencas', 'presenças', 'pres'],
   category: 'Geral',
   fetchMeta: true,

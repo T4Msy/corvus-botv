@@ -37,6 +37,7 @@ const FRASES = [
 
 module.exports = {
   name: 'corvusfrase',
+  membersOnly: true,
   aliases: ['frase', 'msyfrase'],
   category: 'Geral',
   cooldown: 5,

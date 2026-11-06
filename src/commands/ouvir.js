@@ -14,7 +14,7 @@ module.exports = {
   category: 'Mídia',
   cooldown: 10,
   desc: 'Escreve o que foi dito num áudio: responda o áudio com ouvir.',
-  async run ({ msg, reply, config }) {
+  async run ({ msg, reply, config, isMember }) {
     if (!enabled()) { await reply(error('A transcrição ainda não foi ligada no servidor.')); return }
 
     const media = resolveMedia(msg)
@@ -31,7 +31,7 @@ module.exports = {
       // Baixa antes de responder: o reply citando `msg` apaga dela a mensagem citada.
       const audio = await downloadMedia(msg, media)
       await reply(`${emoji.moon} Ouvindo o áudio${media.seconds ? ` (${duracao(media.seconds)})` : ''}...`)
-      const texto = await transcribe(audio, media.node.mimetype)
+      const texto = await transcribe(audio, media.node.mimetype, { vocabulary: isMember })
       await reply(texto
         ? `🎙️ *Transcrição*${media.seconds ? ` _(${duracao(media.seconds)})_` : ''}\n\n${texto}`
         : `${emoji.cross} Não consegui entender nada nesse áudio.`)

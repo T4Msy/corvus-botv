@@ -18,7 +18,7 @@ function enabled () {
  * Texto falado no áudio (Buffer). `mimetype` vem do WhatsApp (ex.:
  * "audio/ogg; codecs=opus"); o nome do arquivo só precisa da extensão certa.
  */
-async function transcribe (buffer, mimetype = 'audio/ogg') {
+async function transcribe (buffer, mimetype = 'audio/ogg', { vocabulary = true } = {}) {
   if (!enabled()) throw new Error('Transcrição desligada (falta GROQ_API_KEY no .env).')
   if (buffer.length > MAX_BYTES) throw new Error('Áudio grande demais para transcrever.')
 
@@ -31,7 +31,8 @@ async function transcribe (buffer, mimetype = 'audio/ogg') {
   form.append('language', 'pt')
   form.append('response_format', 'json')
   form.append('temperature', '0')
-  form.append('prompt', await vocabulario())
+  // O vocabulário tem nomes de membros: só para quem é da Masayoshi.
+  if (vocabulary) form.append('prompt', await vocabulario())
 
   const res = await fetch(API, {
     method: 'POST',

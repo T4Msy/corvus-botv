@@ -13,7 +13,7 @@ const ajuda = p =>
   `${emoji.bullet} ${p}lembrar 20:30 entrar na call\n` +
   `${emoji.bullet} ${p}lembrar em 30 min tirar o bolo do forno\n` +
   `${emoji.bullet} ${p}lembrar amanhã 8h pagar o boleto\n` +
-  `${emoji.bullet} ${p}lembrar 05/11 15h reunião da Masayoshi\n\n` +
+  `${emoji.bullet} ${p}lembrar 05/11 15h reunião do trabalho\n\n` +
   `_O Corvus te chama no privado na hora. Veja os seus com ${p}lembretes._`
 
 module.exports = [

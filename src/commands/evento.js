@@ -77,6 +77,7 @@ async function confirmados (list, n) {
 
 module.exports = {
   name: 'evento',
+  membersOnly: true,
   aliases: ['eventos', 'event'],
   category: 'Geral',
   fetchMeta: true, // isAdmin para "/evento confirmados"

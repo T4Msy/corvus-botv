@@ -5,9 +5,11 @@ const { categoryOf } = require('./categories')
 
 /**
  * Quem vê o comando no menu: Dono só os donos; Administração só admins
- * do grupo (e os donos). `perms` = { isOwner, isAdmin }.
+ * do grupo (e os donos); `membersOnly` só quem é da Masayoshi.
+ * `perms` = { isOwner, isAdmin, isMember }.
  */
-function canSee (cmd, { isOwner = false, isAdmin = false } = {}) {
+function canSee (cmd, { isOwner = false, isAdmin = false, isMember = false } = {}) {
+  if (cmd.membersOnly && !isMember) return false
   const cat = categoryOf(cmd)
   if (cat === 'Dono') return isOwner
   if (cat === 'Administração') return isOwner || isAdmin
@@ -39,6 +41,7 @@ function commandCard (cmd, config) {
 
   const perms = []
   if (cmd.ownerOnly) perms.push('apenas dono')
+  if (cmd.membersOnly) perms.push('apenas membros')
   if (cmd.adminOnly) perms.push('apenas administradores')
   if (cmd.groupOnly) perms.push('somente em grupos')
   if (cmd.botAdmin) perms.push('bot precisa ser admin')

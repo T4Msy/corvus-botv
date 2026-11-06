@@ -17,6 +17,7 @@ function fmtDate (date) {
 
 module.exports = {
   name: 'perfil',
+  membersOnly: true,
   aliases: ['profile', 'eu'],
   category: 'Geral',
   fetchMeta: true,

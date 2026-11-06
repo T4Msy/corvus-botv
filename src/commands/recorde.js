@@ -25,6 +25,7 @@ function periodo (p) {
 
 module.exports = {
   name: 'recorde',
+  membersOnly: true,
   aliases: ['recordes', 'trono'],
   category: 'Geral',
   cooldown: 10,

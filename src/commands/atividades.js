@@ -32,6 +32,7 @@ function quando (d, now = Date.now()) {
 
 module.exports = {
   name: 'atividades',
+  membersOnly: true,
   aliases: ['atividade', 'tarefas', 'pendencias'],
   category: 'Geral',
   fetchMeta: true,

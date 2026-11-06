@@ -34,8 +34,8 @@ module.exports = {
   category: 'Geral',
   desc: 'Menu de comandos: use sem argumento, com <categoria>, <comando> ou "geral".',
   fetchMeta: true, // isAdmin: Administração só aparece para admins do grupo
-  async run ({ sock, from, msg, args, config, commands, isOwner, isAdmin, reply }) {
-    const perms = { isOwner, isAdmin }
+  async run ({ sock, from, msg, args, config, commands, isOwner, isAdmin, isMember, reply }) {
+    const perms = { isOwner, isAdmin, isMember }
     const unique = [...new Set(commands.values())]
     const visible = unique.filter(c => canSee(c, perms))
     const { byCat, cats } = groupByCategory(visible)
@@ -86,6 +86,12 @@ module.exports = {
       `${divider()}\n` +
       `${shortcuts.join('\n')}\n\n` +
       `${emoji.wine} _Erga a taça e escolha o seu caminho._`
+
+    // A arte leva o nome da Masayoshi: quem é de fora recebe só o texto.
+    if (!isMember) {
+      await reply(caption)
+      return
+    }
 
     try {
       const image = fs.readFileSync(MENU_IMAGE)

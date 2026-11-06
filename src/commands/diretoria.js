@@ -7,6 +7,7 @@ const { emoji, header, error } = require('../ui/theme')
 // do membro mais antigo para o mais novo.
 module.exports = {
   name: 'diretoria',
+  membersOnly: true,
   aliases: ['diret', 'board'],
   category: 'Geral',
   cooldown: 5,

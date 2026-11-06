@@ -14,6 +14,7 @@ const saudacao = require('./lib/saudacao')
 const respostas = require('./lib/respostas')
 const presenca = require('./lib/presenca')
 const portal = require('./lib/portal')
+const access = require('./lib/access')
 
 const counters = store('counters')
 const timecounters = store('timecounters')
@@ -24,6 +25,23 @@ const INVITE_RE = /chat\.whatsapp\.com\/\S+/i
 
 // Intervalo mínimo (s) entre respostas "Me chamou??" na mesma conversa.
 const CALL_COOLDOWN = 60
+
+// Intervalo mínimo (s) entre avisos de "sem permissão" para a mesma pessoa.
+const DENY_COOLDOWN = 10 * 60
+
+const isMemberLevel = level => level === 'owner' || level === 'member'
+
+/** Quem é de fora e não foi liberado: avisa e manda o contato de quem libera. */
+async function denyAccess (sock, from, msg, sender, config) {
+  if (ratelimit.check('sem-acesso', sender, DENY_COOLDOWN) > 0) return
+  await sock.sendMessage(
+    from,
+    { text: `Oii eu sou o ${config.botName}, você não tem permissão para me usar, peça para o meu dono!!!` },
+    { quoted: msg }
+  )
+  const card = await access.contactCard(sock)
+  if (card) await sock.sendMessage(from, card)
+}
 
 
 /**
@@ -76,6 +94,7 @@ function createHandler ({ config, commands }) {
       groupCache.set(u.id, { ...old, ...u })
     }))
     sock.ev.on('group-participants.update', async ({ id }) => {
+      access.invalidateMembers(id)
       try {
         const meta = await sock.groupMetadata(id)
         if (meta) groupCache.set(id, meta)
@@ -155,12 +174,32 @@ function createHandler ({ config, commands }) {
 
         const text = extractText(msg.message).trim()
 
+        // Identidades do remetente: em grupos novos o participante chega
+        // como @lid; participantPn/senderPn (quando presentes) trazem o telefone.
+        const senderIds = [sender, msg.key.participantPn, msg.key.senderPn]
+          .filter(Boolean)
+          .map(jidNormalizedUser)
+        const isOwner = fromMe || senderIds.some(j => config.isOwner(j))
+
+        // Nível de acesso (lib/access.js): consultado só quando precisa.
+        let level
+        const accessLevel = async () => {
+          if (!level) {
+            level = await access.levelOf(sock, {
+              ids: senderIds,
+              isOwner,
+              getMeta: isGroup ? async () => groupCache.get(from) || sock.groupMetadata(from) : null
+            })
+          }
+          return level
+        }
+
         // Respostas automáticas (só em grupos ativos ou DMs), no máximo uma por
         // mensagem, nesta ordem: resposta à cobrança de presença (DM) → quem
         // voltou depois de dias sumido → "tô triste"
         // → bom dia/boa tarde/boa noite → "obrigado"/"te amo" ao Corvus → "Me chamou??".
         const canChat = !isGroup || groupsConf.get(from, {}).active === true
-        if (!fromMe && canChat && !text.startsWith(config.prefix)) {
+        if (!fromMe && canChat && !text.startsWith(config.prefix) && isMemberLevel(await accessLevel())) {
           // Número de telefone: participantPn no grupo, senderPn no privado (@lid).
           const pn = msg.key.participantPn || msg.key.senderPn
           const ids = [sender, pn].filter(Boolean).map(jidNormalizedUser)
@@ -222,19 +261,19 @@ function createHandler ({ config, commands }) {
         // Respostas de menus interativos antigos ainda presentes nos chats:
         // respondem em texto (o menu atual é 100% texto).
         if (text.startsWith('menu_cat:')) {
+          if (!isMemberLevel(await accessLevel())) continue
           const cat = text.slice('menu_cat:'.length)
-          const isOwner = fromMe || config.isOwner(sender)
-          const cmds = commandsOfCategory(cat, commands, { isOwner })
+          const cmds = commandsOfCategory(cat, commands, { isOwner, isMember: true })
           if (cmds.length) {
             await sock.sendMessage(from, { text: categoryToText(cat, cmds, config) }, { quoted: msg })
           }
           continue
         }
         if (text.startsWith('menu_cmd:')) {
+          if (!isMemberLevel(await accessLevel())) continue
           const name = text.slice('menu_cmd:'.length).toLowerCase()
-          const isOwner = fromMe || config.isOwner(sender)
           const cmd = commands.get(name)
-          if (cmd && canSee(cmd, { isOwner })) {
+          if (cmd && canSee(cmd, { isOwner, isMember: true })) {
             await sock.sendMessage(from, { text: commandCard(cmd, config) }, { quoted: msg })
           }
           continue
@@ -248,6 +287,10 @@ function createHandler ({ config, commands }) {
         if (!command) {
           // Feedback apenas em DMs para não spammar grupos.
           if (!isGroup) {
+            if (await accessLevel() === 'none') {
+              await denyAccess(sock, from, msg, sender, config)
+              continue
+            }
             await sock.sendMessage(
               from,
               { text: error(`Comando *${config.prefix}${rawCmd}* não encontrado. Use *${config.prefix}menu*.`) },
@@ -257,13 +300,21 @@ function createHandler ({ config, commands }) {
           continue
         }
 
-        // Identidades do remetente: em grupos novos o participante chega
-        // como @lid; participantPn (quando presente) traz o telefone.
-        const senderIds = [sender, msg.key.participantPn]
-          .filter(Boolean)
-          .map(jidNormalizedUser)
-
-        const isOwner = fromMe || senderIds.some(j => config.isOwner(j))
+        // Só usa o bot quem é da Masayoshi ou foi liberado no portal.
+        const senderLevel = await accessLevel()
+        if (senderLevel === 'unknown') {
+          await sock.sendMessage(from, { text: error('Não consegui verificar seu acesso. Tente de novo.') }, { quoted: msg })
+          continue
+        }
+        if (senderLevel === 'none') {
+          await denyAccess(sock, from, msg, sender, config)
+          continue
+        }
+        const isMember = isMemberLevel(senderLevel)
+        if (command.membersOnly && !isMember) {
+          await sock.sendMessage(from, { text: `${emoji.lock} Esse comando não está disponível para você.` }, { quoted: msg })
+          continue
+        }
 
         // Resolve metadados de grupo quando o comando precisa (adminOnly, botAdmin ou fetchMeta).
         let groupMetadata
@@ -330,6 +381,7 @@ function createHandler ({ config, commands }) {
             sender,
             isGroup,
             isOwner,
+            isMember,
             isAdmin,
             isBotAdmin,
             groupMetadata,

@@ -9,6 +9,7 @@ const juntar = nomes => nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e $
 
 module.exports = {
   name: 'dono',
+  membersOnly: true,
   aliases: ['owner', 'criador', 'donos'],
   desc: 'Mostra quem são os fundadores do Corvus.',
   async run ({ reply, config }) {

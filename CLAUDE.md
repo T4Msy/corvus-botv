@@ -53,6 +53,8 @@ src/
   events/
     groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
+    access.js     # who may use the bot: owner / member (in API_DM_GROUP) / guest (portal table
+                  # bot_guests) / none (refused, gets BOT_CONTACT_NUMBER's contact card)
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
     saudacao.js   # auto reply to bom dia/boa tarde/boa noite (phrases: src/data/saudacoes.js; tone: IBGE first-name guess)
     outbox.js     # system sends: DM by @lid in a queue (API_DM_GROUP members only), group mentions
@@ -118,6 +120,7 @@ Drop a file in `src/commands/` exporting
 A file may also export an **array** of such objects (see `redes.js`).
 It is auto-registered. Permission flags are enforced by the handler before `run`:
 - `ownerOnly` → only `config.owner.numbers` (or the hosting account itself)
+- `membersOnly` → hidden from guests: anything about the Masayoshi or the portal must set this
 - `groupOnly` → only in groups
 - `adminOnly` → group admins (or owner)
 - `botAdmin` → the bot itself must be group admin
@@ -128,7 +131,7 @@ It is auto-registered. Permission flags are enforced by the handler before `run`
 
 When a command sets `adminOnly`/`botAdmin`, the handler resolves `groupMetadata` once and
 passes `isAdmin`, `isBotAdmin`, `groupMetadata` in `ctx`. Full `ctx`: `sock, msg, args, text,
-from, sender, isGroup, isOwner, isAdmin, isBotAdmin, groupMetadata, config, commands, reply`.
+from, sender, isGroup, isOwner, isMember, isAdmin, isBotAdmin, groupMetadata, config, commands, reply`.
 
 This per-file design is the whole point of the rewrite — adding/removing features no longer
 means editing one giant obfuscated blob.

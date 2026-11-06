@@ -4,6 +4,7 @@ const { emoji } = require('../ui/theme')
 
 module.exports = {
   name: 'todos',
+  membersOnly: true,
   aliases: ['marcar', 'hidetag', 'all'],
   groupOnly: true,
   adminOnly: true,
