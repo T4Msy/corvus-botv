@@ -88,7 +88,7 @@ async function levelOf (sock, { ids, chat = null, isOwner = false, getMeta = nul
   const all = await memberIds(sock)
   if (!all) return 'unknown'
   if (ids.some(id => all.has(id))) return 'member'
-  if (chat && chat === process.env.BOT_PUBLIC_GROUP) return 'guest'
+  if (isPublicChat(chat)) return 'guest'
 
   const phones = await guestPhones()
   if (!phones.size) return 'none'
@@ -101,8 +101,14 @@ async function levelOf (sock, { ids, chat = null, isOwner = false, getMeta = nul
   return phone && config.phoneVariants(phone).some(v => phones.has(v)) ? 'guest' : 'none'
 }
 
+/** Grupo aberto: nada da Masayoshi lá dentro, nem para membros e donos. */
+function isPublicChat (chat) {
+  return Boolean(chat) && chat === process.env.BOT_PUBLIC_GROUP
+}
+
 /** true se todo mundo do grupo (fora o bot) é da Masayoshi. */
 async function onlyMembers (sock, meta) {
+  if (isPublicChat(meta.id)) return false
   const all = await memberIds(sock)
   if (!all) return false
   const bot = [sock.user?.id, sock.user?.lid].filter(Boolean).map(jidNormalizedUser)
@@ -124,4 +130,4 @@ async function contactCard (sock) {
   return { contacts: { displayName: name, contacts: [{ vcard }] } }
 }
 
-module.exports = { levelOf, onlyMembers, invalidateMembers, contactCard }
+module.exports = { levelOf, isPublicChat, onlyMembers, invalidateMembers, contactCard }

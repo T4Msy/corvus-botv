@@ -203,7 +203,7 @@ function createHandler ({ config, commands }) {
         // mensagem, nesta ordem: resposta à cobrança de presença (DM) → quem
         // voltou depois de dias sumido → "tô triste"
         // → bom dia/boa tarde/boa noite → "obrigado"/"te amo" ao Corvus → "Me chamou??".
-        const canChat = !isGroup || groupsConf.get(from, {}).active === true
+        const canChat = (!isGroup || groupsConf.get(from, {}).active === true) && !access.isPublicChat(from)
         if (!fromMe && canChat && !text.startsWith(config.prefix) && isMemberLevel(await accessLevel())) {
           // Número de telefone: participantPn no grupo, senderPn no privado (@lid).
           const pn = msg.key.participantPn || msg.key.senderPn
@@ -268,7 +268,7 @@ function createHandler ({ config, commands }) {
         if (text.startsWith('menu_cat:')) {
           if (!isMemberLevel(await accessLevel())) continue
           const cat = text.slice('menu_cat:'.length)
-          const cmds = commandsOfCategory(cat, commands, { isOwner, isMember: true })
+          const cmds = commandsOfCategory(cat, commands, { isOwner, isMember: !access.isPublicChat(from) })
           if (cmds.length) {
             await sock.sendMessage(from, { text: categoryToText(cat, cmds, config) }, { quoted: msg })
           }
@@ -278,7 +278,7 @@ function createHandler ({ config, commands }) {
           if (!isMemberLevel(await accessLevel())) continue
           const name = text.slice('menu_cmd:'.length).toLowerCase()
           const cmd = commands.get(name)
-          if (cmd && canSee(cmd, { isOwner, isMember: true })) {
+          if (cmd && canSee(cmd, { isOwner, isMember: !access.isPublicChat(from) })) {
             await sock.sendMessage(from, { text: commandCard(cmd, config) }, { quoted: msg })
           }
           continue
@@ -315,7 +315,7 @@ function createHandler ({ config, commands }) {
           await denyAccess(sock, from, msg, sender, config)
           continue
         }
-        const isMember = isMemberLevel(senderLevel)
+        const isMember = isMemberLevel(senderLevel) && !access.isPublicChat(from)
         if (command.membersOnly && !isMember) {
           await sock.sendMessage(from, { text: `${emoji.lock} Esse comando não está disponível para você.` }, { quoted: msg })
           continue

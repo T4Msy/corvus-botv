@@ -53,7 +53,7 @@ src/
   events/
     groupParticipants.js  # join/leave welcome messages (toggle via /welcome); exports groups store
   lib/
-    access.js     # who may use the bot: owner / member (in API_DM_GROUP) / guest (inside
+    access.js     # who may use the bot: owner / member (in API_DM_GROUP) / guest (inside; nothing Masayoshi there, even for members:
                   # BOT_PUBLIC_GROUP, or anywhere via portal table bot_guests) / none (refused, gets BOT_CONTACT_NUMBER's contact card)
     store.js      # atomic JSON persistence (cache + tmp+rename + write queue)
     saudacao.js   # auto reply to bom dia/boa tarde/boa noite (phrases: src/data/saudacoes.js; tone: IBGE first-name guess)
