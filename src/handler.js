@@ -37,9 +37,9 @@ async function denyAccess (sock, from, msg, sender, config) {
   await sock.sendMessage(
     from,
     {
-      text: `${emoji.raven} *Alto lá, viajante.*\n\n` +
-        `Eu sou o ${config.botName}, e o meu voo ainda não é para você. ${emoji.wine}\n` +
-        'Quer a minha companhia? Fale com o meu dono: o contato pousa logo abaixo.'
+      text: `${emoji.raven} *Oii! Eu sou o ${config.botName}, um bot de WhatsApp.* ${emoji.wine}\n\n` +
+        'Você ainda não tem permissão para me usar.\n' +
+        'Para liberar, é só falar com o meu dono: o contato está logo abaixo.'
     },
     { quoted: msg }
   )
