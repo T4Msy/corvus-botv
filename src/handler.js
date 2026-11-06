@@ -191,6 +191,7 @@ function createHandler ({ config, commands }) {
           if (!level) {
             level = await access.levelOf(sock, {
               ids: senderIds,
+              chat: from,
               isOwner,
               getMeta: isGroup ? async () => groupCache.get(from) || sock.groupMetadata(from) : null
             })

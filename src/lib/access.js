@@ -9,8 +9,9 @@ const { phoneOf } = require('./portal')
  * Quem pode usar o bot:
  * - owner:   donos e o próprio aparelho do bot.
  * - member:  está no grupo da Masayoshi (API_DM_GROUP). Saiu do grupo, perdeu.
- * - guest:   de fora, liberado pelo portal (tabela bot_guests). Usa o bot, mas
- *            nada da Masayoshi: comandos `membersOnly` e respostas automáticas.
+ * - guest:   de fora, dentro do grupo aberto (BOT_PUBLIC_GROUP) ou liberado pelo
+ *            portal (tabela bot_guests). Usa o bot, mas nada da Masayoshi:
+ *            comandos `membersOnly` e respostas automáticas.
  * - none:    de fora e sem liberação.
  * - unknown: não deu para consultar o grupo (o bot acabou de ligar, por exemplo).
  */
@@ -76,9 +77,10 @@ function invalidateMembers (groupId) {
 
 /**
  * Nível de acesso. `ids` = identidades conhecidas de quem mandou;
- * `getMeta` = metadados do grupo atual, para achar o número de um @lid.
+ * `chat` = conversa atual; `getMeta` = metadados do grupo atual, para achar
+ * o número de um @lid.
  */
-async function levelOf (sock, { ids, isOwner = false, getMeta = null }) {
+async function levelOf (sock, { ids, chat = null, isOwner = false, getMeta = null }) {
   if (isOwner) return 'owner'
   // Sem grupo configurado não há como separar membros: fica tudo liberado.
   if (!process.env.API_DM_GROUP) return 'member'
@@ -86,6 +88,7 @@ async function levelOf (sock, { ids, isOwner = false, getMeta = null }) {
   const all = await memberIds(sock)
   if (!all) return 'unknown'
   if (ids.some(id => all.has(id))) return 'member'
+  if (chat && chat === process.env.BOT_PUBLIC_GROUP) return 'guest'
 
   const phones = await guestPhones()
   if (!phones.size) return 'none'
