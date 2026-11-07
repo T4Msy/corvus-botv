@@ -171,9 +171,17 @@ async function eventos (ctx) {
       await deliver(ctx, pub, { vars })
     }
 
+    // Evento criado depois do horário de todas as cobranças (em cima da hora):
+    // cobra uma vez, já, com a última cobrança configurada.
+    const cobrancas = ['evento_cobranca_1', 'evento_cobranca_2'].map(k => autos[k]).filter(Boolean)
+    const fireAt = a => start.getTime() - (a.offset_minutes ?? 0) * 60000
+    const created = new Date(ev.created_at).getTime()
+    const late = start.getTime() > now && cobrancas.length > 0 && cobrancas.every(a => created >= fireAt(a))
+    const ultima = late ? cobrancas.reduce((a, b) => (fireAt(b) > fireAt(a) ? b : a)) : null
+
     for (const key of ['evento_cobranca_1', 'evento_cobranca_2']) {
       const auto = autos[key]
-      if (!auto || !due(start, auto.offset_minutes ?? 0, now)) continue
+      if (!auto || !(auto === ultima || due(start, auto.offset_minutes ?? 0, now))) continue
       if (!await claim(key, ev.id)) continue
       const pending = await pendingOf(ev)
       if (!pending.length) continue
@@ -470,4 +478,4 @@ function startAutomations (getSocket) {
   setInterval(() => tick(getSocket), TICK_MS)
 }
 
-module.exports = { startAutomations, _test: { localDate, todayLocal, due, render, deadlineOf, birthdaysToday, aniversario, aniversarioOrdem } }
+module.exports = { startAutomations, _test: { localDate, todayLocal, due, render, deadlineOf, birthdaysToday, aniversario, aniversarioOrdem, eventos } }
