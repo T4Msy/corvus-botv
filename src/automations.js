@@ -3,8 +3,9 @@
 /**
  * Avisos automáticos do Portal MSY pelo WhatsApp.
  *
- * A cada minuto lê o banco do portal (lib/supabase.js) e manda o que estiver
- * na hora: evento publicado, cobrança de presença, 1h/30min/início do evento,
+ * A cada minuto lê o banco do portal numa chamada só (função bot_tick_data,
+ * migration 20261107_bot_tick_data.sql no repositório do portal) e manda o que
+ * estiver na hora: evento publicado, cobrança de presença, 1h/30min/início do evento,
  * atividade nova, prazo (no dia e 1h antes), reunião marcada/lembrete,
  * comunicado novo, aniversário (às 6h: card com a foto, nome do grupo trocado no dia) e
  * aniversário de entrada na Masayoshi (às 10h). Cada aviso, seus destinos (grupo padrão e/ou privado),
@@ -14,6 +15,10 @@
  * Nunca manda duas vezes: antes de enviar, "reserva" (key, ref) em
  * bot_auto_log. Nunca manda atrasado: só dentro de GRACE_MS do horário.
  * Só liga com SUPABASE_URL e SUPABASE_SERVICE_KEY no .env.
+ *
+ * Campo novo numa regra = mudar a função bot_tick_data no banco E este arquivo.
+ * As regras só leem `ctx.data`; o banco só é chamado de novo para gravar
+ * (claim em bot_auto_log e histórico em bot_messages) quando um aviso sai.
  */
 
 const db = require('./lib/supabase')
@@ -141,17 +146,12 @@ async function eventos (ctx) {
   const keys = ['evento_publicado', 'evento_cobranca_1', 'evento_cobranca_2', 'evento_1h', 'evento_30min', 'evento_inicio']
   if (!keys.some(k => autos[k])) return
 
-  const events = await db.select(
-    `events?select=id,title,description,event_date,event_time,created_at&status=eq.ativo&is_private=eq.false` +
-    `&event_date=gte.${todayLocal(-1)}&event_date=lte.${todayLocal(60)}`
-  )
+  // Eventos públicos ativos de ontem até daqui a 60 dias (filtrados no banco).
+  const events = ctx.data.events
   if (!events.length) return
 
-  let presencas = null
-  const pendingOf = async (ev) => {
-    if (!presencas) {
-      presencas = await db.select(`event_presencas?select=event_id,membro_id,user_id,status,response_status&event_id=in.(${events.map(e => e.id).join(',')})`)
-    }
+  const presencas = ctx.data.event_presencas
+  const pendingOf = (ev) => {
     const answered = new Set(presencas
       .filter(p => p.event_id === ev.id && (p.response_status || ['participar', 'confirmado', 'nao_participar', 'justificado', 'ausente'].includes(p.status)))
       .map(p => p.user_id || p.membro_id))
@@ -183,7 +183,7 @@ async function eventos (ctx) {
       const auto = autos[key]
       if (!auto || !(auto === ultima || due(start, auto.offset_minutes ?? 0, now))) continue
       if (!await claim(key, ev.id)) continue
-      const pending = await pendingOf(ev)
+      const pending = pendingOf(ev)
       if (!pending.length) continue
       // No privado dá para responder ali mesmo ("sim" / "não <motivo>"): lib/presenca.js.
       if (auto.to_private) pending.forEach(id => presenca.marcarCobranca(id, ev.id))
@@ -214,19 +214,12 @@ async function atividades (ctx) {
   const { autos, now } = ctx
   if (!autos.atividade_nova && !autos.atividade_prazo_dia && !autos.atividade_prazo_1h) return
 
-  const since = new Date(now - NEW_WINDOW_MS).toISOString()
-  const acts = await db.select(
-    `activities?select=id,title,assigned_to,assigned_by,deadline,deadline_time,extended_deadline,extended_deadline_time,status,created_at` +
-    `&or=(created_at.gte.${since},deadline.gte.${todayLocal(-1)},extended_deadline.gte.${todayLocal(-1)})`
-  )
-  const open = acts.filter(a => !FINISHED.includes(a.status))
+  // Atividades criadas nos últimos 30 min ou com prazo de ontem em diante (filtradas no banco).
+  const open = ctx.data.activities.filter(a => !FINISHED.includes(a.status))
   if (!open.length) return
 
-  const ids = open.map(a => a.id).join(',')
-  const [collabs, responses] = await Promise.all([
-    db.select(`activity_collaborators?select=activity_id,user_id&activity_id=in.(${ids})`),
-    db.select(`activity_responses?select=activity_id,user_id&activity_id=in.(${ids})`)
-  ])
+  const collabs = ctx.data.activity_collaborators
+  const responses = ctx.data.activity_responses
   const peopleOf = a => [...new Set([a.assigned_to, ...collabs.filter(c => c.activity_id === a.id).map(c => c.user_id)].filter(Boolean))]
   const delivered = a => new Set(responses.filter(r => r.activity_id === a.id).map(r => r.user_id))
 
@@ -276,13 +269,10 @@ async function reunioes (ctx) {
   const { autos, now } = ctx
   if (!autos.reuniao_marcada && !autos.reuniao_lembrete) return
 
-  const since = new Date(now - NEW_WINDOW_MS).toISOString()
-  const meetings = await db.select(
-    `scheduled_meetings?select=id,title,meeting_date,meeting_time,created_at,status&status=eq.agendada` +
-    `&or=(created_at.gte.${since},meeting_date.gte.${todayLocal(-1)})`
-  )
+  // Reuniões agendadas, novas ou de ontem em diante (filtradas no banco).
+  const meetings = ctx.data.meetings
   if (!meetings.length) return
-  const parts = await db.select(`scheduled_meeting_participants?select=meeting_id,user_id&meeting_id=in.(${meetings.map(m => m.id).join(',')})`)
+  const parts = ctx.data.meeting_participants
 
   for (const m of meetings) {
     const start = localDate(m.meeting_date, m.meeting_time)
@@ -303,9 +293,8 @@ async function reunioes (ctx) {
 async function comunicados (ctx) {
   const auto = ctx.autos.comunicado_novo
   if (!auto) return
-  const since = new Date(ctx.now - NEW_WINDOW_MS).toISOString()
-  const rows = await db.select(`comunicados?select=id,title,content,category,created_at&created_at=gte.${since}`)
-  for (const c of rows) {
+  // Comunicados dos últimos 30 minutos (filtrados no banco).
+  for (const c of ctx.data.comunicados) {
     if (!await claim(auto.key, c.id)) continue
     const conteudo = String(c.content || '').replace(/<[^>]+>/g, '').trim()
     await deliver(ctx, auto, {
@@ -358,8 +347,7 @@ async function aniversario (ctx) {
   const today = todayLocal()
   if (!auto || !due(localDate(today, BIRTHDAY_TIME), 0, now)) return
 
-  const profiles = await db.select('profiles?select=id,name,birth_date,avatar_url,initials,color&status=eq.ativo&birth_date=not.is.null')
-  const people = birthdaysToday(profiles, today)
+  const people = birthdaysToday(ctx.data.members.filter(p => p.birth_date), today)
   if (!people.length || !await claim(auto.key, today)) return
 
   const art = await articleOf(people)
@@ -402,7 +390,7 @@ async function aniversarioOrdem (ctx) {
   const today = todayLocal()
   if (!auto || !due(localDate(today, ORDEM_TIME), 0, ctx.now)) return
 
-  const profiles = await db.select('profiles?select=id,name,join_date&status=eq.ativo&join_date=not.is.null')
+  const profiles = ctx.data.members.filter(p => p.join_date)
   const year = Number(today.slice(0, 4))
   for (const p of birthdaysToday(profiles.map(x => ({ ...x, birth_date: x.join_date })), today)) {
     const anos = year - Number(String(p.join_date).slice(0, 4))
@@ -438,20 +426,20 @@ async function tick (getSocket) {
   if (running || !sock) return
   running = true
   try {
-    const [autoRows, settingsRows, members, contacts] = await Promise.all([
-      db.select('bot_automations?select=*&enabled=eq.true'),
-      db.select('bot_settings?select=default_group,default_group_name&id=eq.1'),
-      db.select('profiles?select=id,name&status=eq.ativo'),
-      db.select('member_whatsapp?select=user_id,whatsapp&receive=eq.true')
-    ])
+    // Uma requisição só por minuto (antes eram de 8 a 12).
+    const data = await db.rpc('bot_tick_data')
+    // Parte que falhou no banco vem vazia e listada aqui; as outras seguem normalmente.
+    if (data.errors?.length) console.error('[avisos] Partes sem dados nesta rodada:', data.errors.join(', '))
+    const members = data.members
     const ctx = {
       sock,
       now: Date.now(),
-      autos: Object.fromEntries(autoRows.map(a => [a.key, a])),
-      settings: settingsRows[0] || {},
+      data,
+      autos: Object.fromEntries(data.automations.map(a => [a.key, a])),
+      settings: data.settings || {},
       memberIds: members.map(m => m.id),
       names: new Map(members.map(m => [m.id, m.name])),
-      phones: new Map(contacts.map(c => [c.user_id, c.whatsapp]))
+      phones: new Map(data.contacts.map(c => [c.user_id, c.whatsapp]))
     }
     for (const rule of [eventos, atividades, reunioes, comunicados, aniversario, aniversarioOrdem]) {
       try {

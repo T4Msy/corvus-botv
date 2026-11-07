@@ -143,6 +143,15 @@ igual em celular, Web e Desktop):
 - **`/traduzir` e `/emojimix`**: usam endpoints públicos não oficiais e podem ficar indisponíveis.
 - **`/del`** e **`/antilink`** (apagar/remover) exigem o bot como admin; **`/limpar`** só limpa
   visualmente (o WhatsApp não permite apagar o histórico de terceiros).
+- **Avisos automáticos do portal** (`src/automations.js`): a cada minuto o bot faz **uma única
+  requisição** ao Supabase (`POST /rest/v1/rpc/bot_tick_data`) e recebe tudo de uma vez: avisos da
+  Central do Bot, grupo padrão, membros, WhatsApps, eventos e presenças, atividades, reuniões e
+  comunicados. Antes eram de 8 a 12 consultas por minuto (~90% do tráfego da API do portal), o que
+  ajudou a esgotar a memória da máquina Nano do Supabase (portal fora do ar em 06/11/2026).
+  A função fica no repositório do portal (`supabase/migrations/20261107_bot_tick_data.sql`) e só a
+  chave de serviço (`SUPABASE_SERVICE_KEY`) pode chamá-la. **Campo novo num aviso = mudar a função no
+  banco e o `automations.js`.** Se uma parte falhar no banco, ela vem vazia e o log mostra
+  `[avisos] Partes sem dados nesta rodada: ...`; as outras partes seguem funcionando.
 - **`/reiniciar`** apenas encerra o processo — para religar sozinho, rode o bot sob pm2
   (`pm2 start src/index.js --name corvus`) ou um loop de shell.
 

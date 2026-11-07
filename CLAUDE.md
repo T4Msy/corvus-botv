@@ -30,7 +30,13 @@ node -e "require('./src/config'); require('./src/commands/_registry').loadComman
 src/
   index.js        # bootstrap: banner → load commands → connect (handlers obj) → startApi → startAutomations
   automations.js  # portal auto-notices (events, activities, meetings, announcements), 1-min tick;
-                  # config/templates in Supabase bot_automations; needs SUPABASE_URL + SUPABASE_SERVICE_KEY
+                  # config/templates in Supabase bot_automations; needs SUPABASE_URL + SUPABASE_SERVICE_KEY.
+                  # Each tick is ONE request: db.rpc('bot_tick_data') returns everything (rules read ctx.data;
+                  # the DB is only hit again to claim/log a notice that goes out). The function lives in the
+                  # portal repo: Portal-Membro-Msy/supabase/migrations/20261107_bot_tick_data.sql
+                  # (service_role only). A rule needing a new field = change that function AND this file.
+                  # Why: the per-rule selects were ~90% of the portal's API traffic and the Supabase
+                  # Nano instance ran out of memory (portal down on 06/11/2026).
   api.js          # HTTP API for the portal: send (groups/DM by @lid), group toggles, ranking,
                   # health; on only with API_TOKEN (token: portal/token.txt, gitignored)
   connection.js   # Baileys socket: QR/pairing code, auto-reconnect, getMessage, sendMessage wrapper, getSocket()
