@@ -33,18 +33,18 @@ function isTikTok (s) {
 }
 
 /** Só o Instagram recebe os cookies, e só se o arquivo existir. */
-function cookieOpts (url) {
-  return isInstagram(url) && existsSync(IG_COOKIES) ? { cookies: IG_COOKIES } : {}
+function cookieOpts (url, useCookies = true) {
+  return useCookies && isInstagram(url) && existsSync(IG_COOKIES) ? { cookies: IG_COOKIES } : {}
 }
 
 /** Obtém metadados (título, duração, url) de um link ou busca no YouTube. */
-async function getInfo (query) {
+async function getInfo (query, useCookies = true) {
   const input = isUrl(query) ? query : `ytsearch1:${query}`
   const info = await ytdl(input, {
     dumpSingleJson: true,
     noPlaylist: true,
     noWarnings: true,
-    ...cookieOpts(input)
+    ...cookieOpts(input, useCookies)
   })
   const entry = info.entries ? info.entries[0] : info
   if (!entry) throw new Error('Nada encontrado.')
@@ -55,28 +55,40 @@ async function getInfo (query) {
   }
 }
 
+async function fetchVideo (query, maxDuration, useCookies) {
+  const { url, title, duration } = await getInfo(query, useCookies)
+  if (duration && duration > maxDuration) throw new Error('Vídeo muito longo.')
+  const file = tmpFile('mp4')
+  await ytdl(url, {
+    output: file,
+    format: 'best[height<=480][ext=mp4]/best[ext=mp4]/best',
+    noPlaylist: true,
+    maxFilesize: '64M',
+    noWarnings: true,
+    ffmpegLocation: FFMPEG_DIR,
+    ...cookieOpts(url, useCookies)
+  })
+  return { file, title }
+}
+
 /**
  * Baixa o vídeo (mp4, até 480p/64MB). Quando o yt-dlp é bloqueado, o TikTok
  * cai no tikwm.com; o Instagram lança um erro com code 'IG_BLOCKED'.
+ * Se a sessão dos cookies do Instagram cair, o Instagram responde HTTP 400 a
+ * tudo; aí tentamos de novo sem cookies, que funciona para posts públicos.
  */
 async function downloadVideo (query, { maxDuration = 900 } = {}) {
   const ig = isUrl(query) && isInstagram(query)
   const tt = isUrl(query) && isTikTok(query)
 
   try {
-    const { url, title, duration } = await getInfo(query)
-    if (duration && duration > maxDuration) throw new Error('Vídeo muito longo.')
-    const file = tmpFile('mp4')
-    await ytdl(url, {
-      output: file,
-      format: 'best[height<=480][ext=mp4]/best[ext=mp4]/best',
-      noPlaylist: true,
-      maxFilesize: '64M',
-      noWarnings: true,
-      ffmpegLocation: FFMPEG_DIR,
-      ...cookieOpts(url)
-    })
-    return { file, title }
+    try {
+      return await fetchVideo(query, maxDuration, true)
+    } catch (err) {
+      if (!(ig && existsSync(IG_COOKIES) && /HTTP Error 400/i.test(err.message))) throw err
+      console.error('[instagram] cookies recusados (HTTP 400), tentando sem cookies')
+      return await fetchVideo(query, maxDuration, false)
+    }
   } catch (err) {
     if (tt) {
       const { downloadFromTikwm } = require('./tikwm')
