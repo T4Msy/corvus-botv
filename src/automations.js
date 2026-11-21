@@ -28,6 +28,7 @@ const { pick } = require('./lib/meter')
 const saudacao = require('./lib/saudacao')
 const presenca = require('./lib/presenca')
 const { birthdayCard } = require('./lib/cards')
+const { syncMessageDaily } = require('./lib/msgdaily')
 const FRASES_ANIVERSARIO = require('./data/aniversario')
 const FRASES_ORDEM = require('./data/aniversario-ordem')
 
@@ -441,7 +442,7 @@ async function tick (getSocket) {
       names: new Map(members.map(m => [m.id, m.name])),
       phones: new Map(data.contacts.map(c => [c.user_id, c.whatsapp]))
     }
-    for (const rule of [eventos, atividades, reunioes, comunicados, aniversario, aniversarioOrdem]) {
+    for (const rule of [eventos, atividades, reunioes, comunicados, aniversario, aniversarioOrdem, syncMessageDaily]) {
       try {
         await rule(ctx)
       } catch (err) {

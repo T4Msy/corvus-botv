@@ -14,7 +14,8 @@ function purgeOldData (tc) {
   if (!tc) return {}
   if (tc.daily) {
     const cutoff = new Date()
-    cutoff.setDate(cutoff.getDate() - 7)
+    // 35 dias, não 7: lib/msgdaily.js precisa dos dias que ainda não subiram ao portal.
+    cutoff.setDate(cutoff.getDate() - 35)
     for (const key of Object.keys(tc.daily)) {
       if (new Date(key) < cutoff) delete tc.daily[key]
     }

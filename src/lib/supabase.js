@@ -51,9 +51,18 @@ function update (path, patch) {
   return rest(path, { method: 'PATCH', body: patch, prefer: 'return=representation' })
 }
 
+/** Insere ou sobrescreve linhas pela chave `onConflict` (colunas separadas por vírgula). */
+function upsert (table, rows, onConflict) {
+  return rest(`${table}?on_conflict=${onConflict}`, {
+    method: 'POST',
+    body: rows,
+    prefer: 'return=minimal,resolution=merge-duplicates'
+  })
+}
+
 /** POST /rest/v1/rpc/<fn> — chama uma função do banco. */
 function rpc (fn, args = {}) {
   return rest(`rpc/${fn}`, { method: 'POST', body: args })
 }
 
-module.exports = { enabled, select, insert, update, rpc }
+module.exports = { enabled, select, insert, update, upsert, rpc }
