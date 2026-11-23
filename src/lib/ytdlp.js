@@ -61,7 +61,10 @@ async function fetchVideo (query, maxDuration, useCookies) {
   const file = tmpFile('mp4')
   await ytdl(url, {
     output: file,
-    format: 'best[height<=480][ext=mp4]/best[ext=mp4]/best',
+    // Sem vídeo já com áudio (ex.: Pinterest manda imagem e som separados),
+    // junta as duas faixas com o ffmpeg em vez de falhar.
+    format: 'best[height<=480][ext=mp4]/best[ext=mp4]/bv*[height<=480]+ba/bv*+ba/best',
+    mergeOutputFormat: 'mp4',
     noPlaylist: true,
     maxFilesize: '64M',
     noWarnings: true,
