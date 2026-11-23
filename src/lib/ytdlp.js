@@ -74,9 +74,14 @@ async function fetchVideo (query, maxDuration, useCookies) {
 /**
  * Baixa o vídeo (mp4, até 480p/64MB). Quando o yt-dlp é bloqueado, o TikTok
  * cai no tikwm.com; o Instagram lança um erro com code 'IG_BLOCKED'.
- * Se a sessão dos cookies do Instagram cair, o Instagram responde HTTP 400 a
- * tudo; aí tentamos de novo sem cookies, que funciona para posts públicos.
+ * Quando a sessão dos cookies cai ou o Instagram limita o IP do servidor, ele
+ * responde HTTP 400/401/403/429 a esmo; aí tentamos de novo sem cookies (vale
+ * para posts públicos) e, se ainda falhar, uma última vez com cookies depois
+ * de alguns segundos — esses bloqueios costumam ser passageiros.
  */
+const IG_RETRY = /HTTP Error (400|401|403|429)|login|rate-limit/i
+const IG_RETRY_DELAY_MS = 5000
+
 async function downloadVideo (query, { maxDuration = 900 } = {}) {
   const ig = isUrl(query) && isInstagram(query)
   const tt = isUrl(query) && isTikTok(query)
@@ -85,16 +90,22 @@ async function downloadVideo (query, { maxDuration = 900 } = {}) {
     try {
       return await fetchVideo(query, maxDuration, true)
     } catch (err) {
-      if (!(ig && existsSync(IG_COOKIES) && /HTTP Error 400/i.test(err.message))) throw err
-      console.error('[instagram] cookies recusados (HTTP 400), tentando sem cookies')
-      return await fetchVideo(query, maxDuration, false)
+      if (!(ig && IG_RETRY.test(err.message))) throw err
+      console.error('[instagram] falhou, tentando sem cookies:', err.message.slice(0, 120))
+      try {
+        return await fetchVideo(query, maxDuration, false)
+      } catch (err2) {
+        if (!IG_RETRY.test(err2.message)) throw err2
+        await new Promise(resolve => setTimeout(resolve, IG_RETRY_DELAY_MS))
+        return await fetchVideo(query, maxDuration, true)
+      }
     }
   } catch (err) {
     if (tt) {
       const { downloadFromTikwm } = require('./tikwm')
       return downloadFromTikwm(query)
     }
-    if (ig && /login|cookies|rate-limit/i.test(err.message)) {
+    if (ig && IG_RETRY.test(err.message)) {
       console.error('[instagram] bloqueado:', err.message)
       throw Object.assign(new Error('Instagram bloqueou o download'), { code: 'IG_BLOCKED' })
     }
