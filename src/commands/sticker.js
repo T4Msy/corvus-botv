@@ -1,7 +1,8 @@
 'use strict'
 
 const { resolveMedia, downloadMedia } = require('../lib/media')
-const { createSticker, addExif } = require('../lib/sticker')
+const { createSticker, createSoundSticker, addExif } = require('../lib/sticker')
+const { sendSoundSticker } = require('../lib/soundsticker')
 const { textSticker, clean } = require('../lib/textsticker')
 const { emoji } = require('../ui/theme')
 
@@ -21,7 +22,7 @@ module.exports = {
   name: 'sticker',
   aliases: ['fig', 's', 'figu', 'figurinha'],
   category: 'Mídia',
-  desc: 'Imagem ou vídeo curto vira figurinha. Texto animado: fig attp <texto>.',
+  desc: 'Imagem ou vídeo curto vira figurinha (vídeo com som vira figurinha com som). Texto animado: fig attp <texto>.',
   async run (ctx) {
     const { msg, reply, config, args, text } = ctx
     if (/^attp$/i.test(args[0] || '')) { await attp(ctx, text.replace(/^\s*attp\s*/i, '')); return }
@@ -44,10 +45,22 @@ module.exports = {
 
     try {
       const buffer = await downloadMedia(msg)
-      const webp = await createSticker(buffer, media.isVideo, {
-        pack: 'figurinhas',
-        author: config.botName
-      })
+      const meta = { pack: 'figurinhas', author: config.botName }
+      if (media.isVideo) {
+        // Vídeo com som vira figurinha com som; sem som, figurinha normal.
+        const st = await createSoundSticker(buffer, meta)
+        if (st.audio) {
+          try {
+            await sendSoundSticker(sock, from, st, { quoted: msg })
+            return
+          } catch (err) {
+            console.error('[sticker] figurinha com som falhou, mandando sem som:', err)
+          }
+        }
+        await sock.sendMessage(from, { sticker: st.webp }, { quoted: msg })
+        return
+      }
+      const webp = await createSticker(buffer, false, meta)
       await sock.sendMessage(from, { sticker: webp }, { quoted: msg })
     } catch (err) {
       console.error('[sticker] erro:', err)
