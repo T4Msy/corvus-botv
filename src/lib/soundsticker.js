@@ -3,15 +3,25 @@
 /**
  * Figurinha animada com som (recurso novo do WhatsApp, nov/2026).
  *
- * Formato (engenharia reversa da comunidade; não há doc oficial): uma
- * stickerMessage comum que leva, no campo 26, uma AudioMessage completa
- * (Ogg/Opus mono 48 kHz, "audio/ogg; codecs=opus") enviada como mídia à parte.
+ * Formato (engenharia reversa da comunidade, Baileys issue #2932; não há doc
+ * oficial). É assim que o celular manda:
  *
- * O Baileys 6.7.x não conhece esse campo, e o generateWAMessageFromContent
+ *   Message.134 (audioStickerMessage, envelope tipo FutureProofMessage) {
+ *     1: Message {
+ *       26: StickerMessage { ...campos normais..., 24: 0, 25: emoji,
+ *                            26: AudioMessage (Ogg/Opus, "audio/ogg; codecs=opus") }
+ *     }
+ *   }
+ *
+ * O áudio é uma mídia à parte. Sem o envelope 134 o Android ainda toca, mas o
+ * iPhone não mostra a figurinha.
+ *
+ * O Baileys 6.7.x não conhece nada disso, e o generateWAMessageFromContent
  * passa tudo por fromObject (que descarta campos desconhecidos). Por isso o
- * áudio fica num mapa pelo fileSha256 da figurinha e um gancho no
- * StickerMessage.encode acrescenta o campo 26 na hora de codificar. Assim os
- * reenvios (getMessage/retry, via msgcache) também levam o áudio enquanto ele
+ * áudio fica num mapa pelo fileSha256 da figurinha e dois ganchos
+ * (Message.encode e StickerMessage.encode) montam o formato acima na hora de
+ * codificar. Assim os reenvios (getMessage/retry, via msgcache) e a cópia para
+ * os outros aparelhos do bot (deviceSentMessage) saem iguais enquanto o áudio
  * estiver no mapa.
  */
 
@@ -40,15 +50,54 @@ function prune () {
   }
 }
 
+const ENVELOPE_TAG = (134 << 3) | 2 // Message.audioStickerMessage
+const INNER_MESSAGE_TAG = (1 << 3) | 2 // FutureProofMessage.message
+const PREMIUM_TAG = (24 << 3) | 0 // StickerMessage campo 24 (varint, sempre 0)
+const EMOJI_TAG = (25 << 3) | 2 // StickerMessage campo 25 (emoji)
+const EMOJI = '🔊'
+
 let installed = false
+let inEnvelope = 0
+
+function pendingFor (sticker) {
+  return sticker?.fileSha256 ? pending.get(keyOf(sticker.fileSha256)) : null
+}
+
 function installHook () {
   if (installed) return
   const StickerMessage = proto.Message.StickerMessage
-  const originalEncode = StickerMessage.encode
+  const originalStickerEncode = StickerMessage.encode
   StickerMessage.encode = function (message, writer) {
-    const w = originalEncode.call(this, message, writer)
-    const entry = message?.fileSha256 && pending.get(keyOf(message.fileSha256))
-    if (entry) w.uint32(STICKER_AUDIO_TAG).bytes(entry.bytes)
+    const w = originalStickerEncode.call(this, message, writer)
+    const entry = inEnvelope && pendingFor(message)
+    if (entry) {
+      w.uint32(PREMIUM_TAG).int32(0)
+      w.uint32(EMOJI_TAG).string(EMOJI)
+      w.uint32(STICKER_AUDIO_TAG).bytes(entry.bytes)
+    }
+    return w
+  }
+
+  // A stickerMessage com áudio sai de dentro do envelope 134, não no campo 26
+  // de cima. O resto da mensagem (messageContextInfo etc.) fica onde está.
+  const Message = proto.Message
+  const originalMessageEncode = Message.encode
+  Message.encode = function (message, writer) {
+    if (inEnvelope || !pendingFor(message?.stickerMessage)) {
+      return originalMessageEncode.call(this, message, writer)
+    }
+    const { stickerMessage, ...rest } = message
+    const w = originalMessageEncode.call(this, rest, writer)
+    inEnvelope++
+    try {
+      w.uint32(ENVELOPE_TAG).fork()
+      w.uint32(INNER_MESSAGE_TAG).fork()
+      originalMessageEncode.call(this, { stickerMessage }, w)
+      w.ldelim()
+      w.ldelim()
+    } finally {
+      inEnvelope--
+    }
     return w
   }
   installed = true
@@ -80,12 +129,11 @@ async function sendSoundSticker (sock, jid, st, opts = {}) {
     fileSha256: up.fileSha256,
     fileLength: up.fileLength,
     seconds: st.seconds,
-    ptt: true,
     mediaKey: up.mediaKey,
     fileEncSha256: up.fileEncSha256,
     directPath: up.directPath,
-    mediaKeyTimestamp: up.mediaKeyTimestamp || Math.floor(Date.now() / 1000),
-    ...(st.waveform ? { waveform: st.waveform } : {})
+    // Igual ao celular: sem ptt e sem waveform (campos que ele não manda).
+    mediaKeyTimestamp: up.mediaKeyTimestamp || Math.floor(Date.now() / 1000)
   })).finish()
 
   prune()

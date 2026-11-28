@@ -28,25 +28,44 @@ async function imageToWebp (buffer) {
 
 const MAX_SECONDS = 6 // limita a 6s para manter o sticker < 1MB
 
+// Limite oficial do WhatsApp para figurinha animada. Acima disso o iPhone
+// costuma não mostrar a figurinha (o Android é mais tolerante).
+const MAX_WEBP_BYTES = 500 * 1024
+
+// Tentativas da melhor para a mais leve, até caber no limite.
+const WEBP_LADDER = [
+  { fps: 15, quality: 75, size: 512 },
+  { fps: 12, quality: 50, size: 512 },
+  { fps: 10, quality: 35, size: 512 },
+  { fps: 8, quality: 20, size: 512 },
+  // Vídeos muito pesados: o desenho encolhe dentro do quadro de 512x512.
+  { fps: 8, quality: 10, size: 384 },
+  { fps: 6, quality: 5, size: 288 }
+]
+
 /** Converte um vídeo/GIF (já salvo em `input`) em WebP animado usando o ffmpeg empacotado. */
 async function videoFileToWebp (input) {
   const output = tmpFile('webp')
-  const args = [
-    '-y',
-    '-i', input,
-    '-t', String(MAX_SECONDS),
-    '-vcodec', 'libwebp',
-    '-filter:v',
-    "fps=15,scale=512:512:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:-1:-1:color=#00000000",
-    '-loop', '0',
-    '-preset', 'default',
-    '-an', '-vsync', '0',
-    output
-  ]
-
   try {
-    await runFfmpeg(args)
-    return await fs.readFile(output)
+    let webp = null
+    for (const { fps, quality, size } of WEBP_LADDER) {
+      await runFfmpeg([
+        '-y',
+        '-i', input,
+        '-t', String(MAX_SECONDS),
+        '-vcodec', 'libwebp',
+        '-filter:v',
+        `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:-1:-1:color=#00000000`,
+        '-quality', String(quality),
+        '-loop', '0',
+        '-preset', 'default',
+        '-an', '-vsync', '0',
+        output
+      ])
+      webp = await fs.readFile(output)
+      if (webp.length <= MAX_WEBP_BYTES) break
+    }
+    return webp
   } finally {
     await fs.rm(output, { force: true })
   }
