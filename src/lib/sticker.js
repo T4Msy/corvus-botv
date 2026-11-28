@@ -46,6 +46,57 @@ const WEBP_LADDER = [
   { fps: 6, quality: 5, size: 288 }
 ]
 
+// Quanto cada degrau costuma pesar em relação ao primeiro (medido em vídeos comuns;
+// é uma estimativa por cima: se errar, a escada continua do degrau seguinte).
+const STEP_RATIO = [1, 0.68, 0.5, 0.36, 0.31, 0.2]
+// Trecho curto convertido só para estimar o tamanho final e pular degraus.
+const PROBE_SECONDS = 2
+
+function webpArgs (input, seconds, { fps, quality, size }, output) {
+  return [
+    '-y',
+    '-i', input,
+    '-t', String(seconds),
+    '-vcodec', 'libwebp',
+    '-filter:v',
+    `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:-1:-1:color=#00000000`,
+    '-quality', String(quality),
+    '-loop', '0',
+    '-preset', 'default',
+    '-an', '-vsync', '0',
+    output
+  ]
+}
+
+/** Duração do vídeo em segundos (lida do cabeçalho pelo ffmpeg), ou null. */
+function videoDuration (input) {
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ['-hide_banner', '-i', input])
+    let stderr = ''
+    proc.stderr.on('data', (d) => { stderr += d.toString() })
+    proc.on('error', () => resolve(null))
+    proc.on('close', () => {
+      const m = stderr.match(/Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/)
+      resolve(m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null)
+    })
+  })
+}
+
+/**
+ * Degrau por onde começar: converte só os primeiros 2s, estima o tamanho do trecho
+ * inteiro e pula direto para a qualidade que deve caber em 500 KB. Sem isso, um vídeo
+ * pesado passava pelos 6 degraus convertendo os 10s inteiros em cada um.
+ */
+async function firstStep (input, seconds, output) {
+  const dur = await videoDuration(input)
+  const clip = dur ? Math.min(seconds, dur) : seconds
+  if (clip <= PROBE_SECONDS * 1.5) return 0 // vídeo curto: a escada já é rápida
+  await runFfmpeg(webpArgs(input, PROBE_SECONDS, WEBP_LADDER[0], output))
+  const estimate = (await fs.stat(output)).size * clip / PROBE_SECONDS
+  const i = STEP_RATIO.findIndex((r) => estimate * r <= MAX_WEBP_BYTES * 0.85)
+  return i === -1 ? WEBP_LADDER.length - 1 : i
+}
+
 /**
  * Converte um vídeo/GIF (já salvo em `input`) em WebP animado usando o ffmpeg empacotado.
  * Retorna { webp, seconds } — `seconds` é quanto do vídeo entrou (10, ou 6 se 10 não couber).
@@ -55,20 +106,10 @@ async function videoFileToWebp (input) {
   try {
     let webp = null
     for (const seconds of [MAX_SECONDS, FALLBACK_SECONDS]) {
-      for (const { fps, quality, size } of WEBP_LADDER) {
-        await runFfmpeg([
-          '-y',
-          '-i', input,
-          '-t', String(seconds),
-          '-vcodec', 'libwebp',
-          '-filter:v',
-          `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:-1:-1:color=#00000000`,
-          '-quality', String(quality),
-          '-loop', '0',
-          '-preset', 'default',
-          '-an', '-vsync', '0',
-          output
-        ])
+      // Nos 6s de reserva os 10s já não couberam nem no mais leve: começa pelos últimos degraus.
+      const start = seconds === MAX_SECONDS ? await firstStep(input, seconds, output) : WEBP_LADDER.length - 2
+      for (const step of WEBP_LADDER.slice(start)) {
+        await runFfmpeg(webpArgs(input, seconds, step, output))
         webp = await fs.readFile(output)
         if (webp.length <= MAX_WEBP_BYTES) return { webp, seconds }
       }
@@ -170,23 +211,29 @@ async function createSoundSticker (buffer, meta) {
   const input = tmpFile('mp4')
   await fs.writeFile(input, buffer)
   try {
+    // Som e imagem ao mesmo tempo; o som só é refeito se a imagem precisar cair para 6s.
+    const soundOf = async (clip) => {
+      let pcm = null
+      try {
+        pcm = await readPcm(input, clip)
+      } catch (err) {
+        console.error('[sticker] não consegui ler o áudio do vídeo:', err.message)
+      }
+      if (!pcm) return null
+      const { peak, waveform } = waveformFrom(pcm)
+      if (peak < SILENCE_PEAK) return null
+      const seconds = Math.max(1, Math.round(pcm.length / 2 / 8000))
+      return { audio: await audioFileToOpus(input, clip), seconds, waveform }
+    }
+    const soundTask = soundOf(MAX_SECONDS).catch((err) => {
+      console.error('[sticker] falha no áudio:', err.message)
+      return null
+    })
     const { webp: raw, seconds: clip } = await videoFileToWebp(input)
     const webp = await addExif(raw, meta.pack, meta.author)
-
-    let pcm = null
-    try {
-      pcm = await readPcm(input, clip)
-    } catch (err) {
-      console.error('[sticker] não consegui ler o áudio do vídeo:', err.message)
-    }
-    if (!pcm) return { webp, audio: null }
-
-    const { peak, waveform } = waveformFrom(pcm)
-    if (peak < SILENCE_PEAK) return { webp, audio: null }
-
-    const seconds = Math.max(1, Math.round(pcm.length / 2 / 8000))
-    const audio = await audioFileToOpus(input, clip)
-    return { webp, audio, seconds, waveform }
+    const sound = clip === MAX_SECONDS ? await soundTask : (await soundTask, await soundOf(clip).catch(() => null))
+    if (!sound) return { webp, audio: null }
+    return { webp, ...sound }
   } finally {
     await fs.rm(input, { force: true })
   }
