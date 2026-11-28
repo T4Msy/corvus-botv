@@ -6,7 +6,7 @@ const { sendSoundSticker } = require('../lib/soundsticker')
 const { textSticker, clean } = require('../lib/textsticker')
 const { emoji } = require('../ui/theme')
 
-// Vídeo mais longo é cortado sozinho nos primeiros segundos (MAX_SECONDS em lib/sticker.js).
+// Vídeo mais longo é cortado sozinho nos primeiros 10 segundos (MAX_SECONDS em lib/sticker.js).
 // Este limite só evita baixar vídeo enorme na VPS (1 GB de RAM).
 const MAX_VIDEO_SECONDS = 5 * 60
 const MAX_ATTP = 60 // letras; mais que isso a letra fica pequena demais

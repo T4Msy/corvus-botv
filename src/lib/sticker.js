@@ -26,7 +26,10 @@ async function imageToWebp (buffer) {
     .toBuffer()
 }
 
-const MAX_SECONDS = 6 // limita a 6s para manter o sticker < 1MB
+// Limite do WhatsApp para figurinha animada: vídeo mais longo usa só os primeiros 10s.
+const MAX_SECONDS = 10
+// Se nem a tentativa mais leve couber em 10s, tenta de novo com menos tempo.
+const FALLBACK_SECONDS = 6
 
 // Limite oficial do WhatsApp para figurinha animada. Acima disso o iPhone
 // costuma não mostrar a figurinha (o Android é mais tolerante).
@@ -43,29 +46,35 @@ const WEBP_LADDER = [
   { fps: 6, quality: 5, size: 288 }
 ]
 
-/** Converte um vídeo/GIF (já salvo em `input`) em WebP animado usando o ffmpeg empacotado. */
+/**
+ * Converte um vídeo/GIF (já salvo em `input`) em WebP animado usando o ffmpeg empacotado.
+ * Retorna { webp, seconds } — `seconds` é quanto do vídeo entrou (10, ou 6 se 10 não couber).
+ */
 async function videoFileToWebp (input) {
   const output = tmpFile('webp')
   try {
     let webp = null
-    for (const { fps, quality, size } of WEBP_LADDER) {
-      await runFfmpeg([
-        '-y',
-        '-i', input,
-        '-t', String(MAX_SECONDS),
-        '-vcodec', 'libwebp',
-        '-filter:v',
-        `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:-1:-1:color=#00000000`,
-        '-quality', String(quality),
-        '-loop', '0',
-        '-preset', 'default',
-        '-an', '-vsync', '0',
-        output
-      ])
-      webp = await fs.readFile(output)
-      if (webp.length <= MAX_WEBP_BYTES) break
+    for (const seconds of [MAX_SECONDS, FALLBACK_SECONDS]) {
+      for (const { fps, quality, size } of WEBP_LADDER) {
+        await runFfmpeg([
+          '-y',
+          '-i', input,
+          '-t', String(seconds),
+          '-vcodec', 'libwebp',
+          '-filter:v',
+          `fps=${fps},scale=${size}:${size}:force_original_aspect_ratio=decrease,format=rgba,pad=512:512:-1:-1:color=#00000000`,
+          '-quality', String(quality),
+          '-loop', '0',
+          '-preset', 'default',
+          '-an', '-vsync', '0',
+          output
+        ])
+        webp = await fs.readFile(output)
+        if (webp.length <= MAX_WEBP_BYTES) return { webp, seconds }
+      }
     }
-    return webp
+    // Nem a mais leve coube: manda a menor que conseguimos.
+    return { webp, seconds: FALLBACK_SECONDS }
   } finally {
     await fs.rm(output, { force: true })
   }
@@ -76,21 +85,21 @@ async function videoToWebp (buffer) {
   const input = tmpFile('mp4')
   await fs.writeFile(input, buffer)
   try {
-    return await videoFileToWebp(input)
+    return (await videoFileToWebp(input)).webp
   } finally {
     await fs.rm(input, { force: true })
   }
 }
 
 /**
- * Lê a primeira faixa de áudio do vídeo (os mesmos 6s da animação) como PCM
+ * Lê a primeira faixa de áudio do vídeo (os mesmos `seconds` da animação) como PCM
  * mono 8 kHz. Retorna null se o vídeo não tiver áudio.
  */
-async function readPcm (input) {
+async function readPcm (input, seconds) {
   const args = [
     '-hide_banner', '-loglevel', 'error',
     '-i', input,
-    '-t', String(MAX_SECONDS),
+    '-t', String(seconds),
     '-vn', '-map', '0:a:0?',
     '-ac', '1', '-ar', '8000',
     '-f', 's16le', 'pipe:1'
@@ -128,12 +137,12 @@ function waveformFrom (pcm) {
 }
 
 /** Áudio do vídeo em Ogg/Opus mono 48 kHz (o formato das figurinhas com som). */
-async function audioFileToOpus (input) {
+async function audioFileToOpus (input, seconds) {
   const output = tmpFile('ogg')
   const args = [
     '-y',
     '-i', input,
-    '-t', String(MAX_SECONDS),
+    '-t', String(seconds),
     '-vn', '-map', '0:a:0',
     '-ac', '1', '-ar', '48000',
     '-c:a', 'libopus', '-b:a', '32k',
@@ -161,11 +170,12 @@ async function createSoundSticker (buffer, meta) {
   const input = tmpFile('mp4')
   await fs.writeFile(input, buffer)
   try {
-    const webp = await addExif(await videoFileToWebp(input), meta.pack, meta.author)
+    const { webp: raw, seconds: clip } = await videoFileToWebp(input)
+    const webp = await addExif(raw, meta.pack, meta.author)
 
     let pcm = null
     try {
-      pcm = await readPcm(input)
+      pcm = await readPcm(input, clip)
     } catch (err) {
       console.error('[sticker] não consegui ler o áudio do vídeo:', err.message)
     }
@@ -175,7 +185,7 @@ async function createSoundSticker (buffer, meta) {
     if (peak < SILENCE_PEAK) return { webp, audio: null }
 
     const seconds = Math.max(1, Math.round(pcm.length / 2 / 8000))
-    const audio = await audioFileToOpus(input)
+    const audio = await audioFileToOpus(input, clip)
     return { webp, audio, seconds, waveform }
   } finally {
     await fs.rm(input, { force: true })
